@@ -1,0 +1,310 @@
+import React, { useEffect, useState } from "react";
+import { Card, Row, Col, Form, Button, Table, Modal, Alert } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
+import logo from "../../assets/dietSanJose.png";
+
+interface Articulo {
+  id: number;
+  nombre: string;
+  codigoBarras: string;
+  stock: number;
+  precio: number;
+}
+
+interface ItemPedido {
+  articulo: Articulo;
+  cantidad: number;
+}
+
+interface Proveedor {
+  id: number;
+  nombre: string;
+  contacto?: string;
+  telefono?: string;
+  email?: string;
+}
+
+interface PedidoGuardado {
+  id: number;
+  fecha: string;
+  hora: string;
+  proveedor: Proveedor;
+  items: ItemPedido[];
+  observaciones?: string;
+}
+
+const CrearPedido: React.FC = () => {
+  const navigate = useNavigate();
+
+  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const [catalogoArticulos, setCatalogoArticulos] = useState<Articulo[]>([]);
+
+  const [proveedorId, setProveedorId] = useState<string>("");
+  const [articuloId, setArticuloId] = useState<string>("");
+  const [cantidad, setCantidad] = useState<number>(1);
+  const [itemsPedido, setItemsPedido] = useState<ItemPedido[]>([]);
+  const [observaciones, setObservaciones] = useState<string>("");
+
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [exito, setExito] = useState<string>("");
+  const [error, setError] = useState<string>("");
+  const [pedidoConfirmado, setPedidoConfirmado] = useState<PedidoGuardado | null>(null);
+
+  useEffect(() => {
+    // Proveedores de ejemplo si no hay en localStorage
+    const proveedoresDefault: Proveedor[] = [
+      { id: 1, nombre: "Distribuidora Natural", contacto: "Juan Pérez", telefono: "261-4567890", email: "contacto@natural.com" },
+      { id: 2, nombre: "Alimentos Orgánicos SA", contacto: "María González", telefono: "261-4567891", email: "ventas@organicos.com" },
+      { id: 3, nombre: "Productos del Campo", contacto: "Carlos Rodríguez", telefono: "261-4567892", email: "info@campo.com" },
+    ];
+    const proveedoresLS = localStorage.getItem("proveedores");
+    setProveedores(proveedoresLS ? JSON.parse(proveedoresLS) : proveedoresDefault);
+
+    // Artículos desde localStorage o defaults (mismos que Ventas)
+    const articulosGuardados = localStorage.getItem("articulos");
+    if (articulosGuardados) {
+      setCatalogoArticulos(JSON.parse(articulosGuardados));
+    } else {
+      const articulosDefault: Articulo[] = [
+        { id: 1, nombre: "Harina Integral", codigoBarras: "7790001234567", stock: 25, precio: 1200 },
+        { id: 2, nombre: "Yerba Orgánica", codigoBarras: "7790002345678", stock: 8, precio: 2500 },
+        { id: 3, nombre: "Miel Pura", codigoBarras: "7790003456789", stock: 3, precio: 3800 },
+        { id: 4, nombre: "Aceite de Coco", codigoBarras: "7790004567890", stock: 30, precio: 4500 },
+        { id: 5, nombre: "Quinoa", codigoBarras: "7790005678901", stock: 5, precio: 3200 },
+      ];
+      setCatalogoArticulos(articulosDefault);
+    }
+  }, []);
+
+  const agregarItem = () => {
+    setError("");
+    const art = catalogoArticulos.find(a => a.id === Number(articuloId));
+    if (!art) { setError("Selecciona un artículo válido"); return; }
+    if (cantidad <= 0) { setError("La cantidad debe ser mayor a 0"); return; }
+
+    const existente = itemsPedido.find(i => i.articulo.id === art.id);
+    if (existente) {
+      setItemsPedido(itemsPedido.map(i => i.articulo.id === art.id ? { ...i, cantidad: i.cantidad + cantidad } : i));
+    } else {
+      setItemsPedido([...itemsPedido, { articulo: art, cantidad }]);
+    }
+    setArticuloId("");
+    setCantidad(1);
+  };
+
+  const eliminarItem = (id: number) => {
+    setItemsPedido(itemsPedido.filter(i => i.articulo.id !== id));
+  };
+
+  const abrirConfirmacion = () => {
+    setError("");
+    if (!proveedorId) { setError("Selecciona un proveedor"); return; }
+    if (itemsPedido.length === 0) { setError("Agrega al menos un artículo al pedido"); return; }
+    setShowConfirm(true);
+  };
+
+  const confirmarPedido = () => {
+    const ahora = new Date();
+    const fecha = ahora.toISOString().split("T")[0];
+    const hora = ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    const proveedor = proveedores.find(p => p.id === Number(proveedorId)) as Proveedor;
+
+    const pedido: PedidoGuardado = {
+      id: Date.now(),
+      fecha,
+      hora,
+      proveedor,
+      items: itemsPedido,
+      observaciones: observaciones || undefined,
+    };
+
+    const pedidosGuardados = localStorage.getItem('pedidos');
+    const pedidos: PedidoGuardado[] = pedidosGuardados ? JSON.parse(pedidosGuardados) : [];
+    pedidos.push(pedido);
+    localStorage.setItem('pedidos', JSON.stringify(pedidos));
+
+    setPedidoConfirmado(pedido);
+    setShowConfirm(false);
+    setExito("¡Pedido creado exitosamente!");
+    setTimeout(() => setExito(""), 3000);
+  };
+
+  const imprimirPedido = (pedido: PedidoGuardado) => {
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const estilos = `
+      <style>
+        body{ font-family: Arial, sans-serif; padding: 16px; }
+        h2{ margin: 0 0 8px 0; }
+        .muted{ color:#666; }
+        table{ width:100%; border-collapse: collapse; margin-top:12px; }
+        th, td{ border:1px solid #ccc; padding:8px; text-align:left; }
+        thead{ background:#f0f0f0; }
+      </style>
+    `;
+    const filas = pedido.items.map(i => `<tr><td>${i.articulo.nombre}</td><td>${i.cantidad}</td></tr>`).join("");
+    const html = `
+      ${estilos}
+      <h2>Pedido a Proveedor</h2>
+      <div class="muted">Fecha: ${pedido.fecha} - Hora: ${pedido.hora}</div>
+      <h3>Proveedor</h3>
+      <div><strong>${pedido.proveedor.nombre}</strong></div>
+      ${pedido.proveedor.contacto ? `<div>Contacto: ${pedido.proveedor.contacto}</div>` : ''}
+      ${pedido.proveedor.telefono ? `<div>Teléfono: ${pedido.proveedor.telefono}</div>` : ''}
+      ${pedido.proveedor.email ? `<div>Email: ${pedido.proveedor.email}</div>` : ''}
+      ${pedido.observaciones ? `<div><strong>Observaciones:</strong> ${pedido.observaciones}</div>` : ''}
+      <h3 style="margin-top:16px">Artículos</h3>
+      <table>
+        <thead><tr><th>Artículo</th><th>Cantidad</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    `;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
+  return (
+    <div>
+      {/* Logo */}
+      <div className="d-flex justify-content-end mb-3">
+        <img src={logo} alt="Dietética San José" style={{ height: '80px', objectFit: 'contain' }} />
+      </div>
+
+      <Card className="mt-4 shadow-sm">
+        <Card.Header>
+          <h5 className="mb-0">Nuevo Pedido a Proveedor</h5>
+        </Card.Header>
+        <Card.Body>
+          {error && (
+            <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>
+          )}
+          {exito && (
+            <Alert variant="success" dismissible onClose={() => setExito("")}>{exito}</Alert>
+          )}
+
+          <Row className="mb-3">
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Proveedor</Form.Label>
+                <Form.Select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)}>
+                  <option value="">Selecciona un proveedor...</option>
+                  {proveedores.map(p => (
+                    <option key={p.id} value={p.id}>{p.nombre}</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Observaciones</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Notas del pedido (opcional)"
+                  value={observaciones}
+                  onChange={(e) => setObservaciones(e.target.value)}
+                />
+              </Form.Group>
+            </Col>
+          </Row>
+
+          <Row className="mb-3">
+            <Col md={7}>
+              <Form.Group>
+                <Form.Label>Artículo</Form.Label>
+                <Form.Select value={articuloId} onChange={(e) => setArticuloId(e.target.value)}>
+                  <option value="">Selecciona un artículo...</option>
+                  {catalogoArticulos.map(a => (
+                    <option key={a.id} value={a.id}>{a.nombre}</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col md={3}>
+              <Form.Group>
+                <Form.Label>Cantidad</Form.Label>
+                <Form.Control type="number" min={1} value={cantidad} onChange={(e) => setCantidad(parseInt(e.target.value || '0', 10))} />
+              </Form.Group>
+            </Col>
+            <Col md={2} className="d-flex align-items-end">
+              <Button variant="primary" className="w-100" onClick={agregarItem}>Agregar</Button>
+            </Col>
+          </Row>
+
+          <Table striped bordered hover responsive>
+            <thead style={{ backgroundColor: "#8f3d38", color: "white" }}>
+              <tr>
+                <th>Artículo</th>
+                <th style={{ width: 120 }}>Cantidad</th>
+                <th style={{ width: 120 }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itemsPedido.length > 0 ? itemsPedido.map((item) => (
+                <tr key={item.articulo.id}>
+                  <td>{item.articulo.nombre}</td>
+                  <td>
+                    <Form.Control
+                      type="number"
+                      min={1}
+                      value={item.cantidad}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value || '0', 10);
+                        setItemsPedido(itemsPedido.map(i => i.articulo.id === item.articulo.id ? { ...i, cantidad: val } : i));
+                      }}
+                    />
+                  </td>
+                  <td>
+                    <Button variant="outline-danger" size="sm" onClick={() => eliminarItem(item.articulo.id)}>Eliminar</Button>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={3} className="text-center">Sin artículos agregados</td>
+                </tr>
+              )}
+            </tbody>
+          </Table>
+
+          <div className="d-flex justify-content-end gap-2">
+            <Button variant="secondary" onClick={() => navigate('/proveedores')}>Volver</Button>
+            <Button variant="success" onClick={abrirConfirmacion}>Confirmar Pedido</Button>
+            {pedidoConfirmado && (
+              <Button variant="warning" onClick={() => imprimirPedido(pedidoConfirmado)}>Imprimir/Descargar PDF</Button>
+            )}
+          </div>
+        </Card.Body>
+      </Card>
+
+      {/* Modal de confirmación */}
+      <Modal show={showConfirm} onHide={() => setShowConfirm(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirmar Pedido</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {!proveedorId ? (
+            <Alert variant="danger">Selecciona un proveedor</Alert>
+          ) : (
+            <>
+              <p><strong>Proveedor:</strong> {proveedores.find(p => p.id === Number(proveedorId))?.nombre}</p>
+              <p><strong>Artículos:</strong></p>
+              <ul>
+                {itemsPedido.map(i => (
+                  <li key={i.articulo.id}>{i.articulo.nombre} x{i.cantidad}</li>
+                ))}
+              </ul>
+              {observaciones && (<p><strong>Observaciones:</strong> {observaciones}</p>)}
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowConfirm(false)}>Cancelar</Button>
+          <Button variant="success" onClick={confirmarPedido}>Confirmar</Button>
+        </Modal.Footer>
+      </Modal>
+    </div>
+  );
+};
+
+export default CrearPedido;

@@ -1,0 +1,107 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+/* Estilos globales */
+body {
+  font-family: 'Poppins', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+* {
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Variables de colores */
+:root {
+  --main-color: #8f3d38;
+  --hover-color: #cb7169;
+  --dark-hover: #56070c;
+}
+
+/* Contenedor principal */
+.layout-container {
+  min-height: 100vh;
+  background-color: var(--main-color);
+}
+
+/* Sidebar */
+.sidebar {
+  width: 200px;
+  background-color: var(--main-color);
+  transition: transform 0.3s ease;
+  z-index: 1050;
+  padding-top: 100px;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  padding-bottom: 1rem;
+  position: fixed;
+  height: 100%;
+  color: white;
+}
+
+.sidebar-closed {
+  transform: translateX(-100%);
+}
+
+.sidebar-open {
+  transform: translateX(0);
+}
+
+/* Enlaces del sidebar */
+.sidebar-link {
+  color: white !important;
+  text-align: center;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  display: block;
+  border-radius: 4px;
+}
+
+.sidebar-link:hover {
+  color: var(--hover-color) !important;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Header/Navbar */
+.main-navbar {
+  z-index: 1100;
+  background-color: var(--main-color) !important;
+  position: fixed;
+  width: 100%;
+}
+
+.menu-toggle-btn {
+  border: 2px solid var(--main-color) !important;
+  border-radius: 4px !important;
+  background-color: var(--main-color) !important;
+  color: white !important;
+}
+
+.menu-toggle-btn:hover,
+.menu-toggle-btn:active {
+  background-color: var(--dark-hover) !important;
+  border-color: var(--dark-hover) !important;
+  color: white !important;
+  box-shadow: none !important;
+}
+
+/* Contenido principal */
+.main-content {
+  padding-top: 20px;
+  padding-left: 2rem;
+  padding-right: 2rem;
+  padding-bottom: 2rem;
+  transition: margin-left 0.3s ease;
+  background-color: white;
+  min-height: 100vh;
+  color: black;
+}
+
+.main-content-shifted {
+  margin-left: 200px;
+}
+
+.main-content-normal {
+  margin-left: 0;
+}
