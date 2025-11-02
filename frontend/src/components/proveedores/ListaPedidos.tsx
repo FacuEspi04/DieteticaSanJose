@@ -1,62 +1,66 @@
-import React, { useEffect, useState } from "react";
-import { Card, Table, Button, Row, Col, Form, Modal, Alert } from "react-bootstrap";
+import React, { useEffect, useState, useMemo } from "react";
+import { Card, Table, Button, Row, Col, Form, Modal, Alert, Spinner } from "react-bootstrap";
 import logo from "../../assets/dietSanJose.png";
+import { type Pedido, type Proveedor, getProveedores, getPedidos } from "../../services/apiService";
 
-interface Articulo {
-  id: number;
-  nombre: string;
-  codigoBarras: string;
-}
 
-interface ItemPedido {
-  articulo: Articulo;
-  cantidad: number;
-}
-
-interface Proveedor {
-  id: number;
-  nombre: string;
-  contacto?: string;
-  telefono?: string;
-  email?: string;
-}
-
-interface PedidoGuardado {
-  id: number;
-  fecha: string;
-  hora: string;
-  proveedor: Proveedor;
-  items: ItemPedido[];
-  observaciones?: string;
-}
+// Renombrar PedidoGuardado a Pedido para consistencia
+type PedidoGuardado = Pedido;
 
 const ListaPedidos: React.FC = () => {
   const [pedidos, setPedidos] = useState<PedidoGuardado[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  
+  // Estados de Filtro
   const [proveedorId, setProveedorId] = useState<string>("");
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
-  const [pedidoDetalle, setPedidoDetalle] = useState<PedidoGuardado|null>(null);
-  const [showDetalle, setShowDetalle] = useState(false);
 
+  // Estados de UI
+  const [pedidoDetalle, setPedidoDetalle] = useState<PedidoGuardado | null>(null);
+  const [showDetalle, setShowDetalle] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Carga inicial (Proveedores para el filtro)
   useEffect(() => {
-    const pedidosLS = localStorage.getItem("pedidos");
-    setPedidos(pedidosLS ? JSON.parse(pedidosLS) : []);
-    const proveedoresLS = localStorage.getItem("proveedores");
-    setProveedores(proveedoresLS ? JSON.parse(proveedoresLS) : []);
+    const cargarProveedores = async () => {
+      try {
+        const provData = await getProveedores();
+        setProveedores(provData);
+      } catch (err: any) {
+        setError(err.message || "Error al cargar proveedores");
+      }
+    };
+    cargarProveedores();
   }, []);
 
-  const filtrarPedidos = () => {
-    return pedidos.filter(p => {
-      if (proveedorId && String(p.proveedor.id) !== proveedorId) return false;
-      if (desde && p.fecha < desde) return false;
-      if (hasta && p.fecha > hasta) return false;
-      return true;
-    });
-  };
-  const pedidosFiltrados = filtrarPedidos();
+  // Cargar pedidos (y re-cargar al cambiar filtros)
+  useEffect(() => {
+    const cargarPedidos = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await getPedidos(proveedorId || undefined, desde || undefined, hasta || undefined);
+        setPedidos(data);
+      } catch (err: any) {
+        setError(err.message || "Error al cargar los pedidos");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    // Usamos un timeout para no hacer fetch en cada tecleo de fecha
+    const timer = setTimeout(() => {
+      cargarPedidos();
+    }, 500); // Espera 500ms después de la últimaS modificación
+
+    return () => clearTimeout(timer); // Limpia el timer si el filtro cambia de nuevo
+  }, [proveedorId, desde, hasta]);
+
 
   const imprimirPedido = (pedido: PedidoGuardado) => {
+    // Esta función ya recibe el objeto completo, debería funcionar igual
     const win = window.open("", "_blank");
     if (!win) return;
     const estilos = `
@@ -73,13 +77,13 @@ const ListaPedidos: React.FC = () => {
     const html = `
       ${estilos}
       <h2>Pedido a Proveedor</h2>
-      <div class="muted">Fecha: ${pedido.fecha} - Hora: ${pedido.hora}</div>
+      <div class="muted">Fecha: ${new Date(pedido.fechaPedido).toLocaleDateString('es-AR')}</div>
       <h3>Proveedor</h3>
       <div><strong>${pedido.proveedor.nombre}</strong></div>
       ${pedido.proveedor.contacto ? `<div>Contacto: ${pedido.proveedor.contacto}</div>` : ''}
       ${pedido.proveedor.telefono ? `<div>Teléfono: ${pedido.proveedor.telefono}</div>` : ''}
       ${pedido.proveedor.email ? `<div>Email: ${pedido.proveedor.email}</div>` : ''}
-      ${pedido.observaciones ? `<div><strong>Observaciones:</strong> ${pedido.observaciones}</div>` : ''}
+      ${pedido.notas ? `<div><strong>Observaciones:</strong> ${pedido.notas}</div>` : ''}
       <h3 style="margin-top:16px">Artículos</h3>
       <table>
         <thead><tr><th>Artículo</th><th>Cantidad</th></tr></thead>
@@ -91,6 +95,9 @@ const ListaPedidos: React.FC = () => {
     win.focus();
     win.print();
   };
+  
+  // No necesitamos más pedidosFiltrados, la API ya los entrega filtrados
+  const pedidosFiltrados = pedidos;
 
   return (
     <div>
@@ -106,79 +113,96 @@ const ListaPedidos: React.FC = () => {
             <Col md={4}>
               <Form.Group>
                 <Form.Label>Proveedor</Form.Label>
-                <Form.Select value={proveedorId} onChange={e=>setProveedorId(e.target.value)}>
+                <Form.Select value={proveedorId} onChange={e => setProveedorId(e.target.value)}>
                   <option value="">Todos</option>
-                  {proveedores.map(p=>(<option key={p.id} value={p.id}>{p.nombre}</option>))}
+                  {proveedores.map(p => (<option key={p.id} value={p.id}>{p.nombre}</option>))}
                 </Form.Select>
               </Form.Group>
             </Col>
             <Col md={4}>
               <Form.Group>
                 <Form.Label>Desde (fecha)</Form.Label>
-                <Form.Control type="date" value={desde} onChange={e=>setDesde(e.target.value)} />
+                <Form.Control type="date" value={desde} onChange={e => setDesde(e.target.value)} />
               </Form.Group>
             </Col>
             <Col md={4}>
               <Form.Group>
                 <Form.Label>Hasta (fecha)</Form.Label>
-                <Form.Control type="date" value={hasta} onChange={e=>setHasta(e.target.value)} />
+                <Form.Control type="date" value={hasta} onChange={e => setHasta(e.target.value)} />
               </Form.Group>
             </Col>
           </Row>
-          <Table striped bordered hover responsive>
-            <thead style={{ backgroundColor: "#8f3d38", color: "white" }}>
-              <tr>
-                <th>Fecha</th>
-                <th>Hora</th>
-                <th>Proveedor</th>
-                <th>Ítems</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pedidosFiltrados.length > 0 ? pedidosFiltrados.map(pedido => (
-                <tr key={pedido.id}>
-                  <td>{pedido.fecha}</td>
-                  <td>{pedido.hora}</td>
-                  <td>{pedido.proveedor.nombre}</td>
-                  <td>{pedido.items.length}</td>
-                  <td>
-                    <Button variant="info" size="sm" className="me-2" onClick={()=>{ setPedidoDetalle(pedido); setShowDetalle(true);} }>Ver</Button>
-                    <Button variant="warning" size="sm" onClick={()=> imprimirPedido(pedido)}>PDF</Button>
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={5} className="text-center">No hay pedidos registrados en este rango/proveedor.</td>
-                </tr>
-              )}
-            </tbody>
-          </Table>
 
-          <Modal show={showDetalle} onHide={()=>setShowDetalle(false)} centered>
+          {error && (
+            <Alert variant="danger" onClose={() => setError(null)} dismissible>
+              {error}
+            </Alert>
+          )}
+
+          {isLoading ? (
+             <div className="text-center my-5">
+              <Spinner animation="border" variant="success" />
+              <p className="mt-2">Cargando pedidos...</p>
+            </div>
+          ) : (
+            <Table striped bordered hover responsive>
+              <thead style={{ backgroundColor: "#8f3d38", color: "white" }}>
+                <tr>
+                  <th>Fecha</th>
+                  {/* <th>Hora</th> */}
+                  <th>Proveedor</th>
+                  <th>Ítems</th>
+                  <th>Total</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pedidosFiltrados.length > 0 ? pedidosFiltrados.map(pedido => (
+                  <tr key={pedido.id}>
+                    <td>{new Date(pedido.fechaPedido).toLocaleDateString('es-AR')}</td>
+                    {/* <td>{new Date(pedido.createdAt).toLocaleTimeString('es-AR')}</td> */}
+                    <td>{pedido.proveedor.nombre}</td>
+                    <td>{pedido.items.length}</td>
+                    <td>${Number(pedido.total).toFixed(2)}</td>
+                    <td>
+                      <Button variant="info" size="sm" className="me-2" onClick={() => { setPedidoDetalle(pedido); setShowDetalle(true); }}>Ver</Button>
+                      <Button variant="warning" size="sm" onClick={() => imprimirPedido(pedido)}>PDF</Button>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={5} className="text-center">No hay pedidos registrados en este rango/proveedor.</td>
+                  </tr>
+                )}
+              </tbody>
+            </Table>
+          )}
+
+          <Modal show={showDetalle} onHide={() => setShowDetalle(false)} centered>
             <Modal.Header closeButton>
               <Modal.Title>Detalle de Pedido</Modal.Title>
             </Modal.Header>
             <Modal.Body>
               {pedidoDetalle && (
                 <>
-                  <div><strong>Fecha:</strong> {pedidoDetalle.fecha} {pedidoDetalle.hora}</div>
+                  <div><strong>Fecha:</strong> {new Date(pedidoDetalle.fechaPedido).toLocaleDateString('es-AR')}</div>
                   <div><strong>Proveedor:</strong> {pedidoDetalle.proveedor.nombre}</div>
                   {pedidoDetalle.proveedor.contacto && <div><strong>Contacto:</strong> {pedidoDetalle.proveedor.contacto}</div>}
                   {pedidoDetalle.proveedor.telefono && <div><strong>Tel.:</strong> {pedidoDetalle.proveedor.telefono}</div>}
                   {pedidoDetalle.proveedor.email && <div><strong>Email:</strong> {pedidoDetalle.proveedor.email}</div>}
                   <div className="mt-2"><strong>Artículos:</strong>
                     <ul>
-                      {pedidoDetalle.items.map(i => <li key={i.articulo.id}>{i.articulo.nombre} x{i.cantidad}</li>)}
+                      {/* Usamos el objeto anidado 'articulo' que viene de la API */}
+                      {pedidoDetalle.items.map(i => <li key={i.id}>{i.articulo.nombre} x{i.cantidad}</li>)}
                     </ul>
                   </div>
-                  {pedidoDetalle.observaciones && <div className="mt-2"><strong>Observaciones:</strong> {pedidoDetalle.observaciones}</div>}
+                  {pedidoDetalle.notas && <div className="mt-2"><strong>Observaciones:</strong> {pedidoDetalle.notas}</div>}
                 </>
               )}
             </Modal.Body>
             <Modal.Footer>
-              <Button variant="secondary" onClick={()=>setShowDetalle(false)}>Cerrar</Button>
-              {pedidoDetalle && <Button variant="warning" onClick={()=>imprimirPedido(pedidoDetalle)}>Descargar PDF</Button>}
+              <Button variant="secondary" onClick={() => setShowDetalle(false)}>Cerrar</Button>
+              {pedidoDetalle && <Button variant="warning" onClick={() => imprimirPedido(pedidoDetalle)}>Descargar PDF</Button>}
             </Modal.Footer>
           </Modal>
         </Card.Body>

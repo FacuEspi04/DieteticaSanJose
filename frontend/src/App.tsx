@@ -5,6 +5,7 @@ import Inicio from './components/Inicio';
 import ArticuloDetail from './components/articulos/ArticuloDetail';
 import ArticuloList from './components/articulos/ArticuloList';
 import AgregarArticulo from './components/articulos/AgregarArticulo';
+import EditarArticulo from './components/articulos/EditarArticulo';
 import ProveedoresList from './components/proveedores/ProveedoresList';
 import AgregarProveedor from './components/proveedores/AgregarProveedor';
 import VentasList from './components/ventas/VentasList';
@@ -34,6 +35,7 @@ function App() {
           <Route path="articulos" element={<ArticuloList />} />
           <Route path="articulos/nuevo" element={<AgregarArticulo />} />
           <Route path="articulos/:id" element={<ArticuloDetail />} />
+          <Route path="/articulos/editar/:id" element={<EditarArticulo />} />
 
           {/* Rutas de proveedores */}
           <Route path="proveedores" element={<ProveedoresList />} />

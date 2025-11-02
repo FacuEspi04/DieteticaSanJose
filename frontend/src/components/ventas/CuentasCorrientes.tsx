@@ -1,132 +1,161 @@
-// src/components/ventas/CuentasCorrientes.tsx
 import React, { useState, useEffect } from "react";
-import { Card, Table, Badge, Button, Modal, Form, Alert } from "react-bootstrap";
+import {
+  Card,
+  Table,
+  Badge,
+  Button,
+  Modal,
+  Form,
+  Alert,
+  Spinner,
+} from "react-bootstrap";
 import { CashCoin, CheckCircle } from "react-bootstrap-icons";
 import logo from "../../assets/dietSanJose.png";
-
-interface ItemVenta {
-  articulo: {
-    id: number;
-    nombre: string;
-    precio: number;
-  };
-  cantidad: number;
-  subtotal: number;
-}
-
-interface Venta {
-  id: number;
-  numeroVenta?: number;
-  fecha: string;
-  hora: string;
-  cliente: string;
-  items: ItemVenta[];
-  subtotal: number;
-  formaPago: string;
-  interes: number;
-  total: number;
-  estado: string;
-}
+import {
+  getVentasPendientes,
+  registrarPagoVenta,
+  type Venta,
+  FormaPago, // <-- 1. IMPORTAMOS EL ENUM
+  type VentaDetalle,
+} from "../../services/apiService";
 
 const CuentasCorrientes: React.FC = () => {
-  const [ventas, setVentas] = useState<Venta[]>([]);
+  const [ventasPendientes, setVentasPendientes] = useState<Venta[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [ventaSeleccionada, setVentaSeleccionada] = useState<Venta | null>(null);
-  const [formaPagoPago, setFormaPagoPago] = useState("efectivo");
-  const [interesPorcentajePago, setInteresPorcentajePago] = useState<string>("10");
+  
+  // --- 2. CORRECCIÓN DE ESTADO INICIAL ---
+  // Usamos el enum, no el string
+  const [formaPagoPago, setFormaPagoPago] = useState<FormaPago>(FormaPago.EFECTIVO);
+  
+  const [interesPorcentajePago, setInteresPorcentajePago] =
+    useState<string>("10");
   const [exito, setExito] = useState("");
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
 
   useEffect(() => {
-    cargarVentas();
+    cargarVentasPendientes();
   }, []);
 
-  const cargarVentas = () => {
-    const ventasGuardadas = localStorage.getItem('ventas');
-    if (ventasGuardadas) {
-      setVentas(JSON.parse(ventasGuardadas));
+  const cargarVentasPendientes = async () => {
+    setIsLoading(true);
+    setError(null);
+    setExito(""); // Limpiar éxito al cargar
+    try {
+      const data = await getVentasPendientes();
+      setVentasPendientes(data);
+    } catch (err: any) {
+      console.error("Error al cargar ventas pendientes:", err);
+      setError(err.message || "No se pudieron cargar las cuentas pendientes.");
+      setVentasPendientes([]); // Limpiar en caso de error
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Filtrar solo ventas pendientes (cuenta corriente)
-  const ventasPendientes = ventas.filter(v => v.estado === "Pendiente");
-
   // Agrupar por cliente
-  const ventasPorCliente = ventasPendientes.reduce((acc, venta) => {
-    if (!acc[venta.cliente]) {
-      acc[venta.cliente] = [];
-    }
-    acc[venta.cliente].push(venta);
-    return acc;
-  }, {} as { [cliente: string]: Venta[] });
+  const ventasPorCliente = ventasPendientes.reduce(
+    (acc, venta) => {
+      const clienteKey = venta.clienteNombre || "Cliente General";
+      if (!acc[clienteKey]) {
+        acc[clienteKey] = [];
+      }
+      acc[clienteKey].push(venta);
+      return acc;
+    },
+    {} as { [cliente: string]: Venta[] },
+  );
 
   // Calcular deuda total por cliente
   const calcularDeudaCliente = (cliente: string): number => {
-    return ventasPorCliente[cliente].reduce((total, venta) => total + venta.total, 0);
+    return ventasPorCliente[cliente].reduce(
+      (total, venta) => total + Number(venta.total),
+      0,
+    );
   };
 
   // Abrir modal de pago
   const abrirModalPago = (venta: Venta) => {
     setVentaSeleccionada(venta);
-    setFormaPagoPago(venta.formaPago || "efectivo");
-    setInteresPorcentajePago("10");
+    // --- 3. CORRECCIÓN AL ABRIR MODAL ---
+    setFormaPagoPago(FormaPago.EFECTIVO); // Siempre default al enum
+    setInteresPorcentajePago("10"); // Default interés
+    setError(null); // Limpiar errores del modal
     setShowModal(true);
   };
 
   // Registrar pago
-  const registrarPago = () => {
+  const registrarPago = async () => {
     if (!ventaSeleccionada) return;
 
-    const ahora = new Date();
-    const fechaPago = ahora.toISOString().split('T')[0];
-    const horaPago = ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    setIsSubmitting(true);
+    setError(null);
 
-    // Calcular interés si corresponde
     const porcentaje = parseFloat(interesPorcentajePago) || 0;
-    const interesCalculado = formaPagoPago === 'credito' ? (ventaSeleccionada.subtotal * porcentaje) / 100 : 0;
-    const totalActualizado = ventaSeleccionada.subtotal + interesCalculado;
+    const interesCalculado =
+      formaPagoPago === FormaPago.CREDITO // <-- 4. CORRECCIÓN: Comparar con enum
+        ? (Number(ventaSeleccionada.subtotal) * porcentaje) / 100
+        : 0;
 
-    // Actualizar la venta: cambiar estado y registrar fecha/hora de pago
-    const ventasActualizadas = ventas.map(venta => {
-      if (venta.id === ventaSeleccionada.id) {
-        return {
-          ...venta,
-          estado: "Completada",
-          formaPago: formaPagoPago,
-          interes: interesCalculado,
-          total: totalActualizado,
-          fecha: fechaPago, // Actualizar a la fecha de pago
-          hora: horaPago,   // Actualizar a la hora de pago
-        };
-      }
-      return venta;
-    });
+    try {
+      const pagoDto = {
+        formaPago: formaPagoPago,
+        interes: interesCalculado,
+      };
 
-    // Guardar en localStorage
-    localStorage.setItem('ventas', JSON.stringify(ventasActualizadas));
-    
-    // Actualizar estado local
-    setVentas(ventasActualizadas);
-    
-    setShowModal(false);
-    setExito(`¡Pago registrado exitosamente! ${ventaSeleccionada.cliente} - $${ventaSeleccionada.total.toFixed(2)}`);
-    setVentaSeleccionada(null);
-    
-    setTimeout(() => setExito(""), 3000);
+      // Llamar a la API para registrar el pago
+      const ventaPagada = await registrarPagoVenta(ventaSeleccionada.id, pagoDto);
+
+      // Actualizar el estado local (eliminar la venta de la lista de pendientes)
+      setVentasPendientes((prevVentas) =>
+        prevVentas.filter((v) => v.id !== ventaSeleccionada.id),
+      );
+
+      setShowModal(false);
+      setExito(
+        `¡Pago registrado exitosamente! Venta N°${
+          ventaPagada.numeroVenta
+        } - ${ventaPagada.clienteNombre} - $${Number(ventaPagada.total).toFixed(2)}`,
+      );
+      setVentaSeleccionada(null);
+
+      setTimeout(() => setExito(""), 4000); // Mostrar éxito por 4 seg
+    } catch (apiError: any) {
+      console.error("Error al registrar el pago:", apiError);
+      setError(apiError.message || "No se pudo registrar el pago.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const formatearFecha = (fecha: string): string => {
-    const [year, month, day] = fecha.split('-');
+  // Formatear fecha
+  const formatearFecha = (fechaISO: string | Date): string => {
+    const fecha = new Date(fechaISO);
+    const [year, month, day] = fecha.toISOString().split("T")[0].split("-");
     return `${day}/${month}/${year}`;
   };
+
+  // Formatear hora
+  const formatearHora = (fechaISO: string | Date): string => {
+     const fecha = new Date(fechaISO);
+     return fecha.toLocaleTimeString("es-AR", {
+     hour: "2-digit",
+     minute: "2-digit",
+   });
+  }
 
   return (
     <div>
       {/* Logo */}
       <div className="d-flex justify-content-end mb-3">
-        <img 
-          src={logo} 
-          alt="Dietética San José" 
-          style={{ height: '60px', objectFit: 'contain' }}
+        <img
+          src={logo}
+          alt="Dietética San José"
+          style={{ height: "60px", objectFit: "contain" }}
         />
       </div>
 
@@ -145,11 +174,28 @@ const CuentasCorrientes: React.FC = () => {
             </Alert>
           )}
 
-          {Object.keys(ventasPorCliente).length > 0 ? (
+          {error && !isSubmitting && ( // No mostrar error general si hay error en modal
+            <Alert variant="danger" onClose={() => setError(null)} dismissible>
+              {error}
+            </Alert>
+          )}
+
+          {isLoading ? (
+            <div className="text-center my-5">
+              <Spinner animation="border" variant="success" />
+              <p className="mt-2">Cargando deudas...</p>
+            </div>
+          ) : Object.keys(ventasPorCliente).length > 0 ? (
             <>
               {Object.keys(ventasPorCliente).map((cliente) => (
-                <Card key={cliente} className="mb-3" style={{ border: "1px solid #8f3d38" }}>
-                  <Card.Header style={{ backgroundColor: "#8f3d38", color: "white" }}>
+                <Card
+                  key={cliente}
+                  className="mb-3"
+                  style={{ border: "1px solid #8f3d38" }}
+                >
+                  <Card.Header
+                    style={{ backgroundColor: "#8f3d38", color: "white" }}
+                  >
                     <div className="d-flex justify-content-between align-items-center">
                       <strong>👤 {cliente}</strong>
                       <Badge bg="danger" style={{ fontSize: "1rem" }}>
@@ -171,18 +217,20 @@ const CuentasCorrientes: React.FC = () => {
                       <tbody>
                         {ventasPorCliente[cliente].map((venta) => (
                           <tr key={venta.id}>
-                            <td>{formatearFecha(venta.fecha)}</td>
-                            <td>{venta.hora}</td>
+                            <td>{formatearFecha(venta.fechaHora)}</td>
+                            <td>{formatearHora(venta.fechaHora)}</td>
                             <td>
                               <small>
-                                {venta.items.map((item, idx) => (
+                                {venta.items.map((item: VentaDetalle, idx) => (
                                   <div key={idx}>
                                     {item.articulo.nombre} x{item.cantidad}
                                   </div>
                                 ))}
                               </small>
                             </td>
-                            <td><strong>${venta.total.toFixed(2)}</strong></td>
+                            <td>
+                              <strong>${Number(venta.total).toFixed(2)}</strong>
+                            </td>
                             <td className="text-center">
                               <Button
                                 variant="success"
@@ -210,44 +258,64 @@ const CuentasCorrientes: React.FC = () => {
 
       {/* Modal de registro de pago */}
       <Modal show={showModal} onHide={() => setShowModal(false)} centered>
-        <Modal.Header closeButton style={{ backgroundColor: "#8f3d38", color: "white" }}>
+        <Modal.Header
+          closeButton
+          style={{ backgroundColor: "#8f3d38", color: "white" }}
+        >
           <Modal.Title>Registrar Pago</Modal.Title>
         </Modal.Header>
         <Modal.Body>
+          {/* Error dentro del modal */}
+          {error && isSubmitting && (
+            <Alert variant="danger">{error}</Alert>
+          )}
+
           {ventaSeleccionada && (
             <>
-              <h6 className="mb-3">Cliente: <strong>{ventaSeleccionada.cliente}</strong></h6>
-              <p><strong>Fecha de compra:</strong> {formatearFecha(ventaSeleccionada.fecha)}</p>
-              
+              <h6 className="mb-3">
+                Cliente: <strong>{ventaSeleccionada.clienteNombre}</strong>
+              </h6>
+              <p>
+                <strong>Fecha de compra:</strong>{" "}
+                {formatearFecha(ventaSeleccionada.fechaHora)}
+              </p>
+
               <Alert variant="info">
                 <strong>Productos:</strong>
                 <ul className="mb-0 mt-2">
-                  {ventaSeleccionada.items.map((item, idx) => (
+                  {ventaSeleccionada.items.map((item: VentaDetalle, idx) => (
                     <li key={idx}>
-                      {item.articulo.nombre} x{item.cantidad} = ${item.subtotal.toFixed(2)}
+                      {item.articulo.nombre} x{item.cantidad} = $
+                      {Number(item.subtotal).toFixed(2)}
                     </li>
                   ))}
                 </ul>
               </Alert>
 
               <h5 className="text-center mb-3">
-                Total base (sin interés): <span style={{ color: "#8f3d38" }}>${ventaSeleccionada.subtotal.toFixed(2)}</span>
+                Total base (sin interés):{" "}
+                <span style={{ color: "#8f3d38" }}>
+                  ${Number(ventaSeleccionada.subtotal).toFixed(2)}
+                </span>
               </h5>
 
               <Form.Group>
-                <Form.Label>Forma de Pago <span className="text-danger">*</span></Form.Label>
+                <Form.Label>
+                  Forma de Pago <span className="text-danger">*</span>
+                </Form.Label>
+                {/* --- 5. CORRECCIÓN EN EL FORMULARIO --- */}
                 <Form.Select
                   value={formaPagoPago}
-                  onChange={(e) => setFormaPagoPago(e.target.value)}
+                  onChange={(e) => setFormaPagoPago(e.target.value as FormaPago)}
                 >
-                  <option value="efectivo">Efectivo</option>
-                  <option value="debito">Débito</option>
-                  <option value="credito">Crédito</option>
-                  <option value="transferencia">Transferencia</option>
+                  <option value={FormaPago.EFECTIVO}>Efectivo</option>
+                  <option value={FormaPago.DEBITO}>Débito</option>
+                  <option value={FormaPago.CREDITO}>Crédito</option>
+                  <option value={FormaPago.TRANSFERENCIA}>Transferencia</option>
                 </Form.Select>
               </Form.Group>
 
-              {formaPagoPago === 'credito' && (
+              {formaPagoPago === FormaPago.CREDITO && ( // <-- 6. CORRECCIÓN: Comparar con enum
                 <Form.Group className="mt-3">
                   <Form.Label>Interés para Tarjeta de Crédito (%)</Form.Label>
                   <div className="d-flex align-items-center gap-2">
@@ -257,15 +325,24 @@ const CuentasCorrientes: React.FC = () => {
                       step="0.5"
                       value={interesPorcentajePago}
                       onChange={(e) => setInteresPorcentajePago(e.target.value)}
-                      style={{ maxWidth: '140px' }}
+                      style={{ maxWidth: "140px" }}
                     />
                     <span className="text-muted">
-                      +${((ventaSeleccionada.subtotal * (parseFloat(interesPorcentajePago) || 0)) / 100).toFixed(2)} interés
+                      +${(
+                        (Number(ventaSeleccionada.subtotal) *
+                          (parseFloat(interesPorcentajePago) || 0)) /
+                        100
+                      ).toFixed(2)}{" "}
+                      interés
                     </span>
                   </div>
                   <div className="mt-2 fw-bold text-end">
-                    Total a Pagar: ${(
-                      ventaSeleccionada.subtotal + (ventaSeleccionada.subtotal * (parseFloat(interesPorcentajePago) || 0) / 100)
+                    Total a Pagar: $
+                    {(
+                      Number(ventaSeleccionada.subtotal) +
+                      (Number(ventaSeleccionada.subtotal) *
+                        (parseFloat(interesPorcentajePago) || 0)) /
+                        100
                     ).toFixed(2)}
                   </div>
                 </Form.Group>
@@ -273,19 +350,35 @@ const CuentasCorrientes: React.FC = () => {
 
               <Alert variant="warning" className="mt-3 mb-0">
                 <small>
-                  ⚠️ Al confirmar, esta venta se marcará como <strong>Completada</strong> y se sumará 
-                  al total del día de HOY con el turno actual.
+                  ⚠️ Al confirmar, esta venta se marcará como{" "}
+                  <strong>Completada</strong> y se sumará al total del día de
+                  HOY con el turno actual.
                 </small>
               </Alert>
             </>
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowModal(false)}
+            disabled={isSubmitting}
+          >
             Cancelar
           </Button>
-          <Button variant="success" onClick={registrarPago}>
-            Confirmar Pago
+          <Button
+            variant="success"
+            onClick={registrarPago}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+                {' '}Confirmando...
+              </>
+            ) : (
+              "Confirmar Pago"
+            )}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -294,3 +387,4 @@ const CuentasCorrientes: React.FC = () => {
 };
 
 export default CuentasCorrientes;
+
