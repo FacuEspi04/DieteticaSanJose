@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, Table, Button, Row, Col, Form, Modal, Alert, Spinner } from "react-bootstrap";
 import logo from "../../assets/dietSanJose.png";
-import { type Pedido, type Proveedor, getProveedores, getPedidos } from "../../services/apiService";
-
+// --- 1. IMPORTAR LO QUE FALTA ---
+import { Trash } from "react-bootstrap-icons"; // Importar ícono de eliminar
+import { type Pedido, type Proveedor, getProveedores, getPedidos, deletePedido } from "../../services/apiService"; // Importar deletePedido
 
 // Renombrar PedidoGuardado a Pedido para consistencia
 type PedidoGuardado = Pedido;
@@ -21,6 +22,13 @@ const ListaPedidos: React.FC = () => {
   const [showDetalle, setShowDetalle] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exito, setExito] = useState<string | null>(null); // <-- Añadido para feedback
+
+  // --- 2. NUEVOS ESTADOS PARA MODAL DE ELIMINACIÓN ---
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [pedidoAEliminar, setPedidoAEliminar] = useState<PedidoGuardado | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  // ---
 
   // Carga inicial (Proveedores para el filtro)
   useEffect(() => {
@@ -40,6 +48,7 @@ const ListaPedidos: React.FC = () => {
     const cargarPedidos = async () => {
       setIsLoading(true);
       setError(null);
+      // No limpiamos 'exito' aquí para que se mantenga si solo cambias de fecha
       try {
         const data = await getPedidos(proveedorId || undefined, desde || undefined, hasta || undefined);
         setPedidos(data);
@@ -57,6 +66,48 @@ const ListaPedidos: React.FC = () => {
 
     return () => clearTimeout(timer); // Limpia el timer si el filtro cambia de nuevo
   }, [proveedorId, desde, hasta]);
+
+
+  // --- 3. NUEVAS FUNCIONES PARA ELIMINAR ---
+  const abrirModalEliminar = (pedido: PedidoGuardado) => {
+    setPedidoAEliminar(pedido);
+    setShowDeleteModal(true);
+    setError(null); // Limpiar error
+  };
+
+  const cancelarEliminacion = () => {
+    setShowDeleteModal(false);
+    setPedidoAEliminar(null);
+  };
+
+  const confirmarEliminacion = async () => {
+    if (!pedidoAEliminar) return;
+    
+    setIsDeleting(true);
+    setError(null);
+    setExito(null);
+
+    try {
+      await deletePedido(pedidoAEliminar.id);
+      
+      // Actualizar estado local
+      setPedidos(prev => prev.filter(p => p.id !== pedidoAEliminar.id));
+      
+      setExito(`Pedido #${pedidoAEliminar.id} eliminado exitosamente.`);
+      setShowDeleteModal(false);
+      setPedidoAEliminar(null);
+
+      setTimeout(() => setExito(null), 3000);
+
+    } catch (apiError: any) {
+      console.error("Error al eliminar pedido:", apiError);
+      setError(apiError.message || "No se pudo eliminar el pedido.");
+      // Mantenemos el modal abierto para mostrar el error
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+  // --- FIN DE NUEVAS FUNCIONES ---
 
 
   const imprimirPedido = (pedido: PedidoGuardado) => {
@@ -133,11 +184,18 @@ const ListaPedidos: React.FC = () => {
             </Col>
           </Row>
 
+          {/* Mostrar error o éxito general */}
           {error && (
             <Alert variant="danger" onClose={() => setError(null)} dismissible>
               {error}
             </Alert>
           )}
+          {exito && (
+             <Alert variant="success" onClose={() => setExito(null)} dismissible>
+              {exito}
+            </Alert>
+          )}
+
 
           {isLoading ? (
              <div className="text-center my-5">
@@ -164,20 +222,31 @@ const ListaPedidos: React.FC = () => {
                     <td>{pedido.proveedor.nombre}</td>
                     <td>{pedido.items.length}</td>
                     <td>${Number(pedido.total).toFixed(2)}</td>
-                    <td>
-                      <Button variant="info" size="sm" className="me-2" onClick={() => { setPedidoDetalle(pedido); setShowDetalle(true); }}>Ver</Button>
+                    {/* --- 4. CELDAS DE ACCIÓN ACTUALIZADAS --- */}
+                    <td className="d-flex gap-2">
+                      <Button variant="info" size="sm" onClick={() => { setPedidoDetalle(pedido); setShowDetalle(true); }}>Ver</Button>
                       <Button variant="warning" size="sm" onClick={() => imprimirPedido(pedido)}>PDF</Button>
+                      <Button 
+                        variant="outline-danger" 
+                        size="sm"
+                        onClick={() => abrirModalEliminar(pedido)}
+                        title="Eliminar pedido"
+                      >
+                        <Trash />
+                      </Button>
                     </td>
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={5} className="text-center">No hay pedidos registrados en este rango/proveedor.</td>
+                    {/* --- 5. COLSPAN ACTUALIZADO A 6 --- */}
+                    <td colSpan={6} className="text-center">No hay pedidos registrados en este rango/proveedor.</td>
                   </tr>
                 )}
               </tbody>
             </Table>
           )}
 
+          {/* Modal de Detalle (sin cambios) */}
           <Modal show={showDetalle} onHide={() => setShowDetalle(false)} centered>
             <Modal.Header closeButton>
               <Modal.Title>Detalle de Pedido</Modal.Title>
@@ -205,6 +274,55 @@ const ListaPedidos: React.FC = () => {
               {pedidoDetalle && <Button variant="warning" onClick={() => imprimirPedido(pedidoDetalle)}>Descargar PDF</Button>}
             </Modal.Footer>
           </Modal>
+
+          {/* --- 6. NUEVO MODAL DE ELIMINACIÓN --- */}
+          <Modal show={showDeleteModal} onHide={cancelarEliminacion} centered>
+            <Modal.Header closeButton style={{ backgroundColor: "#8f3d38", color: "white" }}>
+              <Modal.Title>Confirmar Eliminación</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              {error && isDeleting && (
+                <Alert variant="danger">{error}</Alert>
+              )}
+              {pedidoAEliminar && (
+                <>
+                  <p>¿Estás seguro de que deseas eliminar permanentemente el pedido al proveedor <strong>{pedidoAEliminar.proveedor.nombre}</strong>?</p>
+                  <div className="alert alert-warning">
+                    <strong>Fecha:</strong> {new Date(pedidoAEliminar.fechaPedido).toLocaleDateString('es-AR')}<br/>
+                    <strong>Total:</strong> ${Number(pedidoAEliminar.total).toFixed(2)}<br/>
+                    <strong>Items:</strong> {pedidoAEliminar.items.length}
+                  </div>
+                  <p className="text-danger">
+                    <strong>Esta acción no se puede deshacer.</strong>
+                  </p>
+                </>
+              )}
+            </Modal.Body>
+            <Modal.Footer>
+              <Button
+                variant="secondary"
+                onClick={cancelarEliminacion}
+                disabled={isDeleting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                onClick={confirmarEliminacion}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <Spinner animation="border" size="sm" className="me-2" />
+                    Eliminando...
+                  </>
+                ) : (
+                  "Eliminar"
+                )}
+              </Button>
+            </Modal.Footer>
+          </Modal>
+
         </Card.Body>
       </Card>
     </div>
@@ -212,3 +330,4 @@ const ListaPedidos: React.FC = () => {
 };
 
 export default ListaPedidos;
+

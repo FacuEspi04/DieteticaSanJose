@@ -1,9 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { CreateProveedorDto } from './dto/create-proveedor.dto';
 import { Proveedor } from './proveedores.entity';
+
+// import { MysqlError } from 'mysql2'; // <-- 1. ELIMINAMOS ESTA LÍNEA INCORRECTA
 
 @Injectable()
 export class ProveedoresService {
@@ -28,4 +30,32 @@ export class ProveedoresService {
     }
     return proveedor;
   }
+
+  async remove(id: number): Promise<{ message: string }> {
+    const proveedor = await this.findOne(id); // findOne ya maneja el 404
+
+    try {
+      // Intentar eliminar el proveedor
+      await this.proveedorRepository.remove(proveedor);
+      
+      return { message: `Proveedor "${proveedor.nombre}" (ID: ${id}) eliminado.` };
+
+    } catch (error) {
+      // --- 2. CORRECCIÓN AQUÍ ---
+      // Capturar el error y tratarlo como 'any' para acceder a 'code' y 'errno'
+      const mysqlError = error as any; 
+      
+      // Error de MySQL 1451: Violación de Foreign Key
+      // (ER_ROW_IS_REFERENCED_2 es común, 1451 es el número de error)
+      if (mysqlError.code === 'ER_ROW_IS_REFERENCED_2' || mysqlError.errno === 1451) {
+        throw new ConflictException(
+          `No se puede eliminar el proveedor "${proveedor.nombre}" porque ya tiene pedidos u otros registros asociados.`
+        );
+      }
+      
+      // Si es otro tipo de error, lanzarlo
+      throw error;
+    }
+  }
 }
+

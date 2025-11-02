@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   DataSource,
@@ -6,29 +6,32 @@ import {
   FindOptionsWhere,
   LessThanOrEqual,
   MoreThanOrEqual,
+  Between,
 } from 'typeorm';
 
 import { CreatePedidoDto } from './dto/create-pedido.dto';
 import { Articulo } from 'src/articulos/articulo.entity';
 import { PedidoDetalle } from './pedido-detalle.entity';
 import { Pedido } from './pedido.entity';
-// --- CORRECCIÓN EN RUTAS DE IMPORT ---
 
 
 @Injectable()
 export class PedidosService {
+  private readonly logger = new Logger(PedidosService.name);
+
   constructor(
     @InjectRepository(Pedido)
     private readonly pedidoRepository: Repository<Pedido>,
-    @InjectRepository(Articulo) // Necesitamos esto para buscar precios
+    @InjectRepository(PedidoDetalle)
+    private readonly detalleRepository: Repository<PedidoDetalle>,
+    @InjectRepository(Articulo)
     private readonly articuloRepository: Repository<Articulo>,
-    private readonly dataSource: DataSource, // Para transacciones
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(createPedidoDto: CreatePedidoDto): Promise<Pedido> {
     const { proveedorId, notas, items } = createPedidoDto;
 
-    // 1. Iniciar una transacción
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -37,7 +40,6 @@ export class PedidosService {
       let totalPedido = 0;
       const detallesPedido: PedidoDetalle[] = [];
 
-      // 2. Procesar cada ítem
       for (const itemDto of items) {
         const articulo = await this.articuloRepository.findOneBy({
           id: itemDto.articuloId,
@@ -48,7 +50,7 @@ export class PedidosService {
           );
         }
 
-        const precioUnitario = Number(articulo.precio); // Usamos el precio de VENTA (como en tu front)
+        const precioUnitario = Number(articulo.precio);
         const subtotal = precioUnitario * itemDto.cantidad;
         totalPedido += subtotal;
 
@@ -61,38 +63,29 @@ export class PedidosService {
         detallesPedido.push(detalle);
       }
 
-      // 3. Crear el Pedido principal
       const pedido = new Pedido();
       pedido.proveedorId = proveedorId;
-
-      // --- AQUÍ ESTÁ LA CORRECCIÓN ---
-      // Si notas es 'undefined' o un string vacío, guardamos 'null'
       pedido.notas = notas || null;
-
       pedido.fechaPedido = new Date();
       pedido.total = totalPedido;
       pedido.estado = 'Pendiente';
 
       const pedidoGuardado = await queryRunner.manager.save(pedido);
 
-      // 4. Asignar el ID del pedido a los detalles y guardarlos
       for (const detalle of detallesPedido) {
         detalle.pedidoId = pedidoGuardado.id;
         await queryRunner.manager.save(detalle);
       }
 
-      // 5. Confirmar la transacción
       await queryRunner.commitTransaction();
 
-      // 6. Devolver el pedido completo (TypeORM no lo hace fácil post-transacción)
-      // Así que lo volvemos a buscar con todas sus relaciones
+      this.logger.log(`Pedido #${pedidoGuardado.id} creado exitosamente.`);
       return this.findOne(pedidoGuardado.id);
     } catch (err) {
-      // 7. Revertir en caso de error
+      this.logger.error(`Error al crear el pedido: ${err.message}`, err.stack);
       await queryRunner.rollbackTransaction();
       throw err;
     } finally {
-      // 8. Liberar el queryRunner
       await queryRunner.release();
     }
   }
@@ -102,25 +95,27 @@ export class PedidosService {
     desde?: string,
     hasta?: string,
   ): Promise<Pedido[]> {
-    const where: FindOptionsWhere<Pedido> = {};
+    const where: FindOptionsWhere<Pedido> | FindOptionsWhere<Pedido>[] = {};
 
     if (proveedorId) {
       where.proveedorId = proveedorId;
     }
-    if (desde) {
-      // Ajustamos la fecha 'desde' para que incluya todo el día (desde 00:00:00)
-      const fechaDesde = new Date(desde);
-      fechaDesde.setUTCHours(0, 0, 0, 0);
-      where.fechaPedido = MoreThanOrEqual(fechaDesde);
+    
+    // --- ESTA ES LA LÍNEA CORREGIDA ---
+    // Usamos 'desde' y 'hasta', no 'fecha'
+    if (desde && hasta) {
+      const fechaInicio = new Date(`${desde}T00:00:00`); // Local
+      const fechaFin = new Date(`${hasta}T23:59:59`); // Local
+      where.fechaPedido = Between(fechaInicio, fechaFin);
+    } else if (desde) {
+      const fechaInicio = new Date(`${desde}T00:00:00`); // Local
+      where.fechaPedido = MoreThanOrEqual(fechaInicio);
+    } else if (hasta) {
+      const fechaFin = new Date(`${hasta}T23:59:59`); // Local
+      where.fechaPedido = LessThanOrEqual(fechaFin);
     }
-    if (hasta) {
-      // Ajustamos la fecha 'hasta' para que incluya todo el día (hasta 23:59:59)
-      const fechaHasta = new Date(hasta);
-      fechaHasta.setUTCHours(23, 59, 59, 999);
-      where.fechaPedido = LessThanOrEqual(fechaHasta);
-    }
+    // --- FIN DE LA CORRECCIÓN ---
 
-    // Buscamos y ordenamos, cargando las relaciones necesarias
     return this.pedidoRepository.find({
       where,
       relations: ['proveedor', 'items', 'items.articulo'],
@@ -138,4 +133,35 @@ export class PedidosService {
     }
     return pedido;
   }
+
+  async remove(id: number): Promise<{ message: string }> {
+    const pedido = await this.findOne(id); // findOne ya maneja el 404
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    
+    try {
+      // Eliminar detalles
+      // Usamos el ID del pedido, no el objeto
+      await queryRunner.manager.delete(PedidoDetalle, { pedidoId: id });
+      
+      // Eliminar pedido principal
+      await queryRunner.manager.delete(Pedido, { id: id });
+
+      await queryRunner.commitTransaction();
+      
+      this.logger.warn(`Pedido #${pedido.id} (Proveedor: ${pedido.proveedor.nombre}) eliminado permanentemente.`);
+      
+      return { message: `Pedido #${pedido.id} eliminado exitosamente` };
+
+    } catch (err) {
+      this.logger.error(`Error al eliminar el pedido: ${err.message}`, err.stack);
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
 }
+

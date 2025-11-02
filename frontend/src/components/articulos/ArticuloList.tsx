@@ -114,7 +114,7 @@ const ArticuloList: React.FC = () => {
         <img
           src={logo}
           alt="Dietética San José"
-          style={{ height: '60px', objectFit: 'contain' }}
+          style={{ height: '80px', objectFit: 'contain' }}
         />
       </div>
 
@@ -131,26 +131,55 @@ const ArticuloList: React.FC = () => {
           </Button>
         </Card.Header>
         <Card.Body>
-          {/* ... (Alertas de Stock Bajo y Error no cambian) ... */}
+          
+          {/* --- MODIFICACIÓN AQUÍ ---
+              Añadimos el botón de "Crear Pedido" dentro de la alerta de stock bajo
+          */}
           {articulosStockBajo.length > 0 && (
-            <Alert variant="warning" className="d-flex align-items-center mb-3">
-              <ExclamationTriangle size={24} className="me-2" />
-              <div>
-                <strong>
-                  ¡Atención! Stock bajo en {articulosStockBajo.length} producto
-                  {articulosStockBajo.length !== 1 ? 's' : ''}:
-                </strong>
-                <ul className="mb-0 mt-1">
-                  {articulosStockBajo.map((art) => (
-                    <li key={art.id}>
-                      {art.nombre} - Stock actual: {art.stock} (Mínimo:{' '}
-                      {art.stock_minimo})
-                    </li>
-                  ))}
-                </ul>
+            <Alert variant="warning" className="mb-3">
+              <div className="d-flex justify-content-between align-items-center">
+                {/* Contenido de la alerta (Izquierda) */}
+                <div className="d-flex align-items-center">
+                  <ExclamationTriangle
+                    size={32} // Un poco más grande para que se note
+                    className="me-3 text-warning"
+                  />
+                  <div>
+                    <strong>
+                      ¡Atención! Stock bajo en {articulosStockBajo.length}{" "}
+                      producto
+                      {articulosStockBajo.length !== 1 ? "s" : ""}:
+                    </strong>
+                    {/* Usamos 'small' y 'fontSize' para que la lista no sea tan grande */}
+                    <small> 
+                      <ul className="mb-0 mt-1" style={{ fontSize: "0.9em" }}>
+                        {articulosStockBajo.map((art) => (
+                          <li key={art.id}>
+                            {art.nombre} (Stock: {art.stock} / Mín:{" "}
+                            {art.stock_minimo})
+                          </li>
+                        ))}
+                      </ul>
+                    </small>
+                  </div>
+                </div>
+                
+                {/* Botón nuevo para ir a Pedidos (Derecha) */}
+                <div className="ms-3">
+                  <Button
+                    variant="primary" 
+                    size="sm"
+                    onClick={() => navigate('/proveedores/pedidos/nuevo')}
+                    title="Ir a crear un nuevo pedido a proveedores"
+                  >
+                    Crear Pedido
+                  </Button>
+                </div>
               </div>
             </Alert>
           )}
+          {/* --- FIN DE LA MODIFICACIÓN --- */}
+
 
           {error && !isDeleting && (
             <Alert variant="danger" onClose={() => setError(null)} dismissible>
@@ -206,7 +235,7 @@ const ArticuloList: React.FC = () => {
                         <code>{articulo.codigo_barras}</code>
                       </td>
                       <td>{articulo.nombre}</td>
-                      <td>{articulo.marca}</td>
+                      <td>{articulo.marca || <small className="text-muted">N/A</small>}</td>
                       <td>
                         {articulo.stock <= articulo.stock_minimo ? (
                           <Badge bg="danger">{articulo.stock}</Badge>
@@ -216,8 +245,8 @@ const ArticuloList: React.FC = () => {
                       </td>
                       <td>{articulo.stock_minimo}</td>
                       <td>${Number(articulo.precio).toFixed(2)}</td>
+                      {/* Esta es tu celda de Acciones original, la respetamos */}
                       <td className="text-center">
-                        {/* --- BOTÓN NUEVO --- */}
                         <Button
                           variant="outline-primary" // Botón de editar
                           size="sm"

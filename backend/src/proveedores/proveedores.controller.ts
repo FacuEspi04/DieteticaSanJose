@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, ParseIntPipe, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseIntPipe, ValidationPipe, Delete, HttpCode, HttpStatus } from '@nestjs/common';
 import { ProveedoresService } from './proveedores.service';
 import { CreateProveedorDto } from './dto/create-proveedor.dto';
 
@@ -19,5 +19,11 @@ export class ProveedoresController {
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.proveedoresService.findOne(id);
+  }
+
+   @Delete(':id')
+  @HttpCode(HttpStatus.OK) // Devolver 200 OK
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.proveedoresService.remove(id);
   }
 }

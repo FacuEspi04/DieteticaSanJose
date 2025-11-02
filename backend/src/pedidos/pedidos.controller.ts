@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Body, Param, ParseIntPipe, Query, ValidationPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  ParseIntPipe,
+  Query,
+  ValidationPipe,
+  Delete, // <-- AÑADIDO
+  HttpCode, // <-- AÑADIDO
+  HttpStatus, // <-- AÑADIDO
+} from '@nestjs/common';
 import { PedidosService } from './pedidos.service';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
 
@@ -25,4 +37,12 @@ export class PedidosController {
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.pedidosService.findOne(id);
   }
+
+  // --- NUEVO ENDPOINT AÑADIDO ---
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK) // Devolver 200 OK
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.pedidosService.remove(id);
+  }
 }
+

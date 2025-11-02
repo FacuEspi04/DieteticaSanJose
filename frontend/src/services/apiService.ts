@@ -247,6 +247,20 @@ export const createProveedor = async (
   return await response.json();
 };
 
+export const deleteProveedor = async (
+  id: number,
+): Promise<{ message: string }> => {
+  const response = await fetch(`${API_URL}/proveedores/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    // Capturar error del backend
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Error al eliminar el proveedor');
+  }
+  return await response.json();
+};
+
 // --- Servicios de Pedidos ---
 
 export const getPedidos = async (
@@ -291,6 +305,21 @@ export const createPedido = async (
   }
   return await response.json();
 };
+
+// --- NUEVA FUNCIÓN AÑADIDA ---
+export const deletePedido = async (
+  id: number,
+): Promise<{ message: string }> => {
+  const response = await fetch(`${API_URL}/pedidos/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Error al eliminar el pedido');
+  }
+  return await response.json();
+};
+// --- FIN DE LA FUNCIÓN ---
 
 // --- Servicios de Ventas (Actualizados) ---
 

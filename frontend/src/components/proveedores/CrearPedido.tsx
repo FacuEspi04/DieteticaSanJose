@@ -2,11 +2,19 @@ import React, { useEffect, useState } from "react";
 import { Card, Row, Col, Form, Button, Table, Modal, Alert, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import logo from "../../assets/dietSanJose.png";
-import { createPedido, getArticulos, getProveedores, type Articulo, type CreatePedidoDto, type Pedido, type Proveedor } from "../../services/apiService";
+import { 
+  createPedido, 
+  getArticulos, 
+  getProveedores, 
+  type Articulo, 
+  type CreatePedidoDto, 
+  type Pedido, 
+  type Proveedor 
+} from "../../services/apiService";
 
 
 interface ItemPedido {
-  articulo: Articulo;
+  articulo: Articulo; // Usaremos el tipo 'Articulo' completo
   cantidad: number;
 }
 
@@ -44,8 +52,20 @@ const CrearPedido: React.FC = () => {
           getProveedores(),
           getArticulos()
         ]);
+        
+        // --- CORRECCIÓN AQUÍ ---
+        // Forzamos la conversión de 'id' y 'precio' a número
+        // al igual que hicimos en RegistrarVenta.tsx
+        const articulosMapeados = artData.map(a => ({
+          ...a,
+          id: Number(a.id),
+          precio: Number(a.precio),
+        }));
+        
         setProveedores(provData);
-        setCatalogoArticulos(artData);
+        setCatalogoArticulos(articulosMapeados); // <-- Usamos los datos mapeados
+        // --- FIN DE LA CORRECCIÓN ---
+
       } catch (err: any) {
         setError(err.message || "Error al cargar datos iniciales");
       } finally {
@@ -57,7 +77,13 @@ const CrearPedido: React.FC = () => {
 
   const agregarItem = () => {
     setError("");
-    const art = catalogoArticulos.find(a => a.id === Number(articuloId));
+    
+    // Ahora 'articuloId' (string) se compara con 'a.id' (number)
+    // Usamos '==' (comparación flexible) o Number() en ambos lados.
+    // Usar Number() es más seguro:
+    const idBuscado = Number(articuloId);
+    const art = catalogoArticulos.find(a => a.id === idBuscado);
+    
     if (!art) { setError("Selecciona un artículo válido"); return; }
     if (cantidad <= 0) { setError("La cantidad debe ser mayor a 0"); return; }
 
@@ -84,13 +110,15 @@ const CrearPedido: React.FC = () => {
 
   const confirmarPedido = async () => {
     setIsSubmitting(true);
+    setError(""); // Limpiar error antes de intentar
     
     // Preparar el DTO
     const pedidoDto: CreatePedidoDto = {
       proveedorId: Number(proveedorId),
       notas: observaciones || undefined,
       items: itemsPedido.map(item => ({
-        articuloId: item.articulo.id,
+        // 'item.articulo.id' ya es un número gracias a la corrección del useEffect
+        articuloId: item.articulo.id, 
         cantidad: item.cantidad
       }))
     };
@@ -106,13 +134,31 @@ const CrearPedido: React.FC = () => {
       setItemsPedido([]);
       setProveedorId("");
       setObservaciones("");
+      setArticuloId("");
+      setCantidad(1);
 
       setTimeout(() => setExito(""), 3000);
     } catch (err: any) {
+      console.error("Error al confirmar pedido:", err);
+      // Mostrar el error en el modal si sigue abierto, o en la página
       setError(err.message || "Error al confirmar el pedido");
+      setShowConfirm(false); // Cerrar modal para mostrar error en la página
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // --- NUEVA FUNCIÓN ---
+  // Limpia el estado para permitir crear un nuevo pedido
+  const handleNuevoPedido = () => {
+    setPedidoConfirmado(null);
+    setExito("");
+    setError("");
+    setItemsPedido([]);
+    setProveedorId("");
+    setObservaciones("");
+    setArticuloId("");
+    setCantidad(1);
   };
 
   const imprimirPedido = (pedido: PedidoGuardado) => {
@@ -180,96 +226,115 @@ const CrearPedido: React.FC = () => {
             </div>
           ) : (
             <>
-              <Row className="mb-3">
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label>Proveedor</Form.Label>
-                    <Form.Select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)}>
-                      <option value="">Selecciona un proveedor...</option>
-                      {proveedores.map(p => (
-                        <option key={p.id} value={p.id}>{p.nombre}</option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label>Observaciones</Form.Label>
-                    <Form.Control
-                      type="text"
-                      placeholder="Notas del pedido (opcional)"
-                      value={observaciones}
-                      onChange={(e) => setObservaciones(e.target.value)}
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-
-              <Row className="mb-3">
-                <Col md={7}>
-                  <Form.Group>
-                    <Form.Label>Artículo</Form.Label>
-                    <Form.Select value={articuloId} onChange={(e) => setArticuloId(e.target.value)}>
-                      <option value="">Selecciona un artículo...</option>
-                      {catalogoArticulos.map(a => (
-                        <option key={a.id} value={a.id}>{a.nombre}</option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={3}>
-                  <Form.Group>
-                    <Form.Label>Cantidad</Form.Label>
-                    <Form.Control type="number" min={1} value={cantidad} onChange={(e) => setCantidad(parseInt(e.target.value || '0', 10))} />
-                  </Form.Group>
-                </Col>
-                <Col md={2} className="d-flex align-items-end">
-                  <Button variant="primary" className="w-100" onClick={agregarItem}>Agregar</Button>
-                </Col>
-              </Row>
-
-              <Table striped bordered hover responsive>
-                <thead style={{ backgroundColor: "#8f3d38", color: "white" }}>
-                  <tr>
-                    <th>Artículo</th>
-                    <th style={{ width: 120 }}>Cantidad</th>
-                    <th style={{ width: 120 }}>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {itemsPedido.length > 0 ? itemsPedido.map((item) => (
-                    <tr key={item.articulo.id}>
-                      <td>{item.articulo.nombre}</td>
-                      <td>
+              {/* --- MODIFICACIÓN: Ocultar formulario si el pedido ya se confirmó --- */}
+              {!pedidoConfirmado && (
+                <>
+                  <Row className="mb-3">
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label>Proveedor</Form.Label>
+                        <Form.Select value={proveedorId} onChange={(e) => setProveedorId(e.target.value)}>
+                          <option value="">Selecciona un proveedor...</option>
+                          {proveedores.map(p => (
+                            <option key={p.id} value={p.id}>{p.nombre}</option>
+                          ))}
+                        </Form.Select>
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label>Observaciones</Form.Label>
                         <Form.Control
-                          type="number"
-                          min={1}
-                          value={item.cantidad}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value || '0', 10);
-                            setItemsPedido(itemsPedido.map(i => i.articulo.id === item.articulo.id ? { ...i, cantidad: val } : i));
-                          }}
+                          type="text"
+                          placeholder="Notas del pedido (opcional)"
+                          value={observaciones}
+                          onChange={(e) => setObservaciones(e.target.value)}
                         />
-                      </td>
-                      <td>
-                        <Button variant="outline-danger" size="sm" onClick={() => eliminarItem(item.articulo.id)}>Eliminar</Button>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={3} className="text-center">Sin artículos agregados</td>
-                    </tr>
-                  )}
-                </tbody>
-              </Table>
+                      </Form.Group>
+                    </Col>
+                  </Row>
 
+                  <Row className="mb-3">
+                    <Col md={7}>
+                      <Form.Group>
+                        <Form.Label>Artículo</Form.Label>
+                        <Form.Select value={articuloId} onChange={(e) => setArticuloId(e.target.value)}>
+                          <option value="">Selecciona un artículo...</option>
+                          {catalogoArticulos.map(a => (
+                            <option key={a.id} value={a.id}>{a.nombre}</option>
+                          ))}
+                        </Form.Select>
+                      </Form.Group>
+                    </Col>
+                    <Col md={3}>
+                      <Form.Group>
+                        <Form.Label>Cantidad</Form.Label>
+                        <Form.Control type="number" min={1} value={cantidad} onChange={(e) => setCantidad(parseInt(e.target.value || '0', 10))} />
+                      </Form.Group>
+                    </Col>
+                    <Col md={2} className="d-flex align-items-end">
+                      <Button variant="primary" className="w-100" onClick={agregarItem}>Agregar</Button>
+                    </Col>
+                  </Row>
+
+                  <Table striped bordered hover responsive>
+                    <thead style={{ backgroundColor: "#8f3d38", color: "white" }}>
+                      <tr>
+                        <th>Artículo</th>
+                        <th style={{ width: 120 }}>Cantidad</th>
+                        <th style={{ width: 120 }}>Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {itemsPedido.length > 0 ? itemsPedido.map((item) => (
+                        <tr key={item.articulo.id}>
+                          <td>{item.articulo.nombre}</td>
+                          <td>
+                            <Form.Control
+                              type="number"
+                              min={1}
+                              value={item.cantidad}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value || '0', 10);
+                                setItemsPedido(itemsPedido.map(i => i.articulo.id === item.articulo.id ? { ...i, cantidad: val } : i));
+                              }}
+                            />
+                          </td>
+                          <td>
+                            <Button variant="outline-danger" size="sm" onClick={() => eliminarItem(item.articulo.id)}>Eliminar</Button>
+                          </td>
+                        </tr>
+                      )) : (
+                        <tr>
+                          <td colSpan={3} className="text-center">Sin artículos agregados</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </Table>
+                </>
+              )}
+              {/* --- FIN DE LA MODIFICACIÓN --- */}
+
+
+              {/* --- MODIFICACIÓN: Lógica de botones actualizada --- */}
               <div className="d-flex justify-content-end gap-2">
-                <Button variant="secondary" onClick={() => navigate('/proveedores')}>Volver</Button>
-                <Button variant="success" onClick={abrirConfirmacion}>Confirmar Pedido</Button>
-                {pedidoConfirmado && (
-                  <Button variant="warning" onClick={() => imprimirPedido(pedidoConfirmado)}>Imprimir/Descargar PDF</Button>
+                {!pedidoConfirmado ? (
+                  <>
+                    <Button variant="secondary" onClick={() => navigate('/proveedores')}>Volver</Button>
+                    <Button variant="success" onClick={abrirConfirmacion}>Confirmar Pedido</Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="success" onClick={handleNuevoPedido}>
+                      🧾 Hacer Nuevo Pedido
+                    </Button>
+                    <Button variant="warning" onClick={() => imprimirPedido(pedidoConfirmado)}>
+                      Imprimir/Descargar PDF
+                    </Button>
+                  </>
                 )}
               </div>
+              {/* --- FIN DE LA MODIFICACIÓN --- */}
             </>
           )}
         </Card.Body>
@@ -281,7 +346,8 @@ const CrearPedido: React.FC = () => {
           <Modal.Title>Confirmar Pedido</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {error && (
+          {/* Mostramos el error DENTRO del modal si falla la confirmación */}
+          {error && isSubmitting && (
             <Alert variant="danger">{error}</Alert>
           )}
           {!proveedorId ? (
@@ -316,3 +382,4 @@ const CrearPedido: React.FC = () => {
 };
 
 export default CrearPedido;
+
