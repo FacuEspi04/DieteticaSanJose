@@ -15,8 +15,8 @@ import {
   getVentasPendientes,
   registrarPagoVenta,
   type Venta,
-  FormaPago, // <-- 1. IMPORTAMOS EL ENUM
-  type VentaDetalle,
+  type FormaPago, // <-- 1. IMPORTAMOS EL TIPO
+  type VentaDetalle, // Importamos para la lógica
 } from "../../services/apiService";
 
 const CuentasCorrientes: React.FC = () => {
@@ -25,8 +25,8 @@ const CuentasCorrientes: React.FC = () => {
   const [ventaSeleccionada, setVentaSeleccionada] = useState<Venta | null>(null);
   
   // --- 2. CORRECCIÓN DE ESTADO INICIAL ---
-  // Usamos el enum, no el string
-  const [formaPagoPago, setFormaPagoPago] = useState<FormaPago>(FormaPago.EFECTIVO);
+  // Usamos el TIPO string, pero con el valor inicial correcto
+  const [formaPagoPago, setFormaPagoPago] = useState<FormaPago>("efectivo");
   
   const [interesPorcentajePago, setInteresPorcentajePago] =
     useState<string>("10");
@@ -60,7 +60,8 @@ const CuentasCorrientes: React.FC = () => {
   // Agrupar por cliente
   const ventasPorCliente = ventasPendientes.reduce(
     (acc, venta) => {
-      const clienteKey = venta.clienteNombre || "Cliente General";
+      // Usamos clienteNombre que viene de la API
+      const clienteKey = venta.clienteNombre || "Cliente General"; 
       if (!acc[clienteKey]) {
         acc[clienteKey] = [];
       }
@@ -73,7 +74,7 @@ const CuentasCorrientes: React.FC = () => {
   // Calcular deuda total por cliente
   const calcularDeudaCliente = (cliente: string): number => {
     return ventasPorCliente[cliente].reduce(
-      (total, venta) => total + Number(venta.total),
+      (total, venta) => total + Number(venta.total), // Aseguramos que 'total' sea número
       0,
     );
   };
@@ -82,7 +83,7 @@ const CuentasCorrientes: React.FC = () => {
   const abrirModalPago = (venta: Venta) => {
     setVentaSeleccionada(venta);
     // --- 3. CORRECCIÓN AL ABRIR MODAL ---
-    setFormaPagoPago(FormaPago.EFECTIVO); // Siempre default al enum
+    setFormaPagoPago("efectivo"); // Siempre default al string "efectivo"
     setInteresPorcentajePago("10"); // Default interés
     setError(null); // Limpiar errores del modal
     setShowModal(true);
@@ -96,8 +97,10 @@ const CuentasCorrientes: React.FC = () => {
     setError(null);
 
     const porcentaje = parseFloat(interesPorcentajePago) || 0;
+    
+    // --- 4. CORRECCIÓN: Comparar con string ---
     const interesCalculado =
-      formaPagoPago === FormaPago.CREDITO // <-- 4. CORRECCIÓN: Comparar con enum
+      formaPagoPago === "credito" 
         ? (Number(ventaSeleccionada.subtotal) * porcentaje) / 100
         : 0;
 
@@ -135,13 +138,17 @@ const CuentasCorrientes: React.FC = () => {
   // Formatear fecha
   const formatearFecha = (fechaISO: string | Date): string => {
     const fecha = new Date(fechaISO);
-    const [year, month, day] = fecha.toISOString().split("T")[0].split("-");
+    // CORRECCIÓN TIMEZONE: No ajustar manualmente
+    const day = String(fecha.getDate()).padStart(2, '0');
+    const month = String(fecha.getMonth() + 1).padStart(2, '0'); // Month es 0-indexed
+    const year = fecha.getFullYear();
     return `${day}/${month}/${year}`;
   };
 
   // Formatear hora
   const formatearHora = (fechaISO: string | Date): string => {
      const fecha = new Date(fechaISO);
+     // CORRECCIÓN TIMEZONE: No ajustar manualmente
      return fecha.toLocaleTimeString("es-AR", {
      hour: "2-digit",
      minute: "2-digit",
@@ -221,9 +228,11 @@ const CuentasCorrientes: React.FC = () => {
                             <td>{formatearHora(venta.fechaHora)}</td>
                             <td>
                               <small>
+                                {/* Usamos el tipo VentaDetalle que viene de la API */}
                                 {venta.items.map((item: VentaDetalle, idx) => (
                                   <div key={idx}>
-                                    {item.articulo.nombre} x{item.cantidad}
+                                    {/* Asumimos que 'articulo' está cargado (eager: true en backend) */}
+                                    {item.articulo?.nombre || 'Artículo no encontrado'} x{item.cantidad}
                                   </div>
                                 ))}
                               </small>
@@ -285,7 +294,7 @@ const CuentasCorrientes: React.FC = () => {
                 <ul className="mb-0 mt-2">
                   {ventaSeleccionada.items.map((item: VentaDetalle, idx) => (
                     <li key={idx}>
-                      {item.articulo.nombre} x{item.cantidad} = $
+                      {item.articulo?.nombre || 'Artículo no encontrado'} x{item.cantidad} = $
                       {Number(item.subtotal).toFixed(2)}
                     </li>
                   ))}
@@ -304,18 +313,19 @@ const CuentasCorrientes: React.FC = () => {
                   Forma de Pago <span className="text-danger">*</span>
                 </Form.Label>
                 {/* --- 5. CORRECCIÓN EN EL FORMULARIO --- */}
+                {/* Usamos los valores de string del TIPO FormaPago */}
                 <Form.Select
                   value={formaPagoPago}
                   onChange={(e) => setFormaPagoPago(e.target.value as FormaPago)}
                 >
-                  <option value={FormaPago.EFECTIVO}>Efectivo</option>
-                  <option value={FormaPago.DEBITO}>Débito</option>
-                  <option value={FormaPago.CREDITO}>Crédito</option>
-                  <option value={FormaPago.TRANSFERENCIA}>Transferencia</option>
+                  <option value="efectivo">Efectivo</option>
+                  <option value="debito">Débito</option>
+                  <option value="credito">Crédito</option>
+                  <option value="transferencia">Transferencia</option>
                 </Form.Select>
               </Form.Group>
 
-              {formaPagoPago === FormaPago.CREDITO && ( // <-- 6. CORRECCIÓN: Comparar con enum
+              {formaPagoPago === "credito" && ( // <-- 6. CORRECCIÓN: Comparar con string
                 <Form.Group className="mt-3">
                   <Form.Label>Interés para Tarjeta de Crédito (%)</Form.Label>
                   <div className="d-flex align-items-center gap-2">

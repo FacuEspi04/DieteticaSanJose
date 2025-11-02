@@ -6,6 +6,7 @@ import { CreateArticuloDto } from './dto/create-articulo.dto';
 import { UpdateArticuloDto } from './dto/update-articulo.dto';
 import { Articulo } from './articulo.entity';
 
+
 @Injectable()
 export class ArticulosService {
   constructor(
@@ -18,11 +19,8 @@ export class ArticulosService {
     return this.articuloRepository.save(nuevoArticulo);
   }
 
-  // --- CORRECCIÓN AQUÍ ---
-  // Añadimos el parámetro opcional 'search'
   async findAll(search?: string): Promise<Articulo[]> {
     if (search) {
-      // Si hay término de búsqueda, filtramos por él
       return this.articuloRepository.find({
         where: [
           { nombre: Like(`%${search}%`) },
@@ -32,7 +30,6 @@ export class ArticulosService {
         order: { nombre: 'ASC' },
       });
     }
-    // Si no hay término de búsqueda, devolvemos todo
     return this.articuloRepository.find({
       order: { nombre: 'ASC' },
     });
@@ -46,21 +43,30 @@ export class ArticulosService {
     return articulo;
   }
 
+  // --- LÓGICA DE UPDATE CORREGIDA ---
   async update(
     id: number,
     updateArticuloDto: UpdateArticuloDto,
   ): Promise<Articulo> {
-    const articulo = await this.articuloRepository.preload({
-      id,
-      ...updateArticuloDto,
-    });
+    
+    // 1. Buscamos el artículo primero por su ID.
+    const articulo = await this.articuloRepository.findOneBy({ id });
 
+    // 2. Si no lo encuentra, lanzamos el 404.
+    // (Si el 404 sigue ocurriendo, el error está aquí, 
+    // lo que significaría que la DB o el ID están mal)
     if (!articulo) {
       throw new NotFoundException(`Artículo con ID #${id} no encontrado.`);
     }
 
+    // 3. Si lo encuentra, fusionamos los datos del DTO en la entidad cargada.
+    // Esto actualiza 'articulo' con los nuevos valores de 'updateArticuloDto'.
+    this.articuloRepository.merge(articulo, updateArticuloDto);
+
+    // 4. Guardamos la entidad ya fusionada.
     return this.articuloRepository.save(articulo);
   }
+  // --- FIN DE LA CORRECCIÓN ---
 
   async remove(id: number) {
     const articulo = await this.findOne(id);

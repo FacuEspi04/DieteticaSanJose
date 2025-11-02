@@ -96,19 +96,11 @@ export interface CreatePedidoDto {
 
 // --- Tipos de Ventas (Actualizados) ---
 
-// Hacemos coincidir los Enums del Backend
-export enum FormaPago {
-  EFECTIVO = 'efectivo',
-  DEBITO = 'debito',
-  CREDITO = 'credito',
-  TRANSFERENCIA = 'transferencia',
-}
+// --- CORRECCIÓN 1: Usamos 'type' en lugar de 'enum' para el frontend ---
+export type FormaPago = 'efectivo' | 'debito' | 'credito' | 'transferencia';
 
-export enum VentaEstado {
-  COMPLETADA = 'Completada',
-  PENDIENTE = 'Pendiente',
-  // ANULADA = 'Anulada', // Eliminada
-}
+export type VentaEstado = 'Completada' | 'Pendiente';
+// 'Anulada' se eliminó
 
 export interface VentaDetalle {
   id: number;
@@ -120,7 +112,7 @@ export interface VentaDetalle {
 }
 
 export interface Venta {
-  id: number; // <-- AÑADIDO: El ID principal
+  id: number; // El ID principal
   numeroVenta: number;
   clienteId: number | null;
   clienteNombre: string;
@@ -131,10 +123,8 @@ export interface Venta {
   formaPago: FormaPago | null; // Acepta null
   estado: VentaEstado;
   turno: string;
-  // anuladoTs: Date | null; // Eliminado
-  items: VentaDetalle[]; // <-- CORREGIDO: Renombrado
+  items: VentaDetalle[];
   createdAt: Date;
-  // updatedAt: Date; // No estaba en la entidad
 }
 
 export interface CreateVentaItemDto {
@@ -148,7 +138,7 @@ export interface CreateVentaDto {
   items: CreateVentaItemDto[];
   formaPago: FormaPago | null; // Acepta null
   estado: VentaEstado; // 'Completada' o 'Pendiente'
-  interes?: number; // <-- CORREGIDO: 'interes' en lugar de 'interesPorcentaje'
+  interes?: number;
   nota?: string;
 }
 
@@ -333,13 +323,13 @@ export const createVenta = async (ventaData: CreateVentaDto): Promise<Venta> => 
     throw new Error(errorData.message || 'Error al crear la venta');
   }
   return await response.json();
-};
+}; 
 
 export const registrarPagoVenta = async (
-  ventaId: number, // <-- CORREGIDO: Usamos el 'id'
+  ventaId: number, // Usamos el 'id'
   pagoData: RegistrarPagoDto,
 ): Promise<Venta> => {
-  const response = await fetch(`${API_URL}/ventas/${ventaId}/pagar`, { // <-- CORREGIDO: Usamos el 'id'
+  const response = await fetch(`${API_URL}/ventas/${ventaId}/pagar`, { // Usamos el 'id'
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(pagoData),
@@ -354,9 +344,9 @@ export const registrarPagoVenta = async (
 // --- anularVenta ELIMINADA ---
 
 export const deleteVenta = async (
-  ventaId: number, // <-- CORREGIDO: Usamos el 'id'
+  ventaId: number, // Usamos el 'id'
 ): Promise<{ message: string; ventaEliminada: number }> => {
-  const response = await fetch(`${API_URL}/ventas/${ventaId}`, { // <-- CORREGIDO: Usamos el 'id'
+  const response = await fetch(`${API_URL}/ventas/${ventaId}`, { // Usamos el 'id'
     method: 'DELETE',
   });
   if (!response.ok) {

@@ -19,7 +19,9 @@ import {
   createVenta,
   type CreateVentaDto,
   type CreateVentaItemDto,
-  type FormaPago,
+  type FormaPago, 
+  type VentaEstado,
+  type Articulo,
 } from "../../services/apiService";
 
 // El tipo de Articulo que usa este componente (simplificado)
@@ -46,6 +48,7 @@ const RegistrarVenta: React.FC = () => {
   const [exito, setExito] = useState("");
   const [nombreCliente, setNombreCliente] = useState("");
   const [catalogoArticulos, setCatalogoArticulos] = useState<ArticuloVenta[]>([]);
+  // Usamos el TIPO 'FormaPago' para el estado
   const [formaPago, setFormaPago] = useState<FormaPago>("efectivo");
   const [interesPorcentaje, setInteresPorcentaje] = useState<string>("10"); // %
   const [esCtaCte, setEsCtaCte] = useState<boolean>(false);
@@ -59,12 +62,13 @@ const RegistrarVenta: React.FC = () => {
     const cargarCatalogo = async () => {
       setIsLoading(true);
       try {
-        const apiItems = await getArticulos();
+        const apiItems: Articulo[] = await getArticulos(); // Usamos el tipo Articulo
         const mapeados: ArticuloVenta[] = apiItems.map((a) => ({
-          id: a.id,
+          // --- CORRECCIÓN 1: Forzar conversión a número al cargar ---
+          id: Number(a.id), 
           nombre: a.nombre,
+          marca: a.marca || '', 
           codigoBarras: a.codigo_barras,
-          // Convertimos el precio a número al cargar
           precio: Number(a.precio), 
           stock: a.stock ?? 0,
         }));
@@ -73,7 +77,6 @@ const RegistrarVenta: React.FC = () => {
       } catch (e: any) {
         console.error("Error al cargar artículos:", e);
         setError("Error al cargar el catálogo de artículos. " + e.message);
-        // Dejar el catálogo vacío si falla la API
         setCatalogoArticulos([]); 
       } finally {
         setIsLoading(false);
@@ -209,7 +212,6 @@ const RegistrarVenta: React.FC = () => {
 
   // Calcular interés
   const calcularInteres = (): number => {
-    // No hay interés si es Cta Cte
     if (esCtaCte) return 0; 
     
     if (formaPago === "credito") {
@@ -245,23 +247,22 @@ const RegistrarVenta: React.FC = () => {
 
     // 1. Mapear items al DTO
     const itemsDto: CreateVentaItemDto[] = itemsVenta.map(item => ({
-      articuloId: item.articulo.id,
+      // --- CORRECCIÓN 2: Forzar conversión a número al enviar ---
+      articuloId: Number(item.articulo.id), 
       cantidad: item.cantidad,
     }));
 
     // 2. Crear el DTO de Venta
-    const estadoVenta = esCtaCte ? "Pendiente" : "Completada";
+    const estadoVenta: VentaEstado = esCtaCte ? "Pendiente" : "Completada";
     
     const nuevaVenta: CreateVentaDto = {
       clienteNombre: nombreCliente.trim() || "Cliente General",
-      // clienteId: (opcional, si tuvieras un selector de clientes)
+      // clienteId: (opcional)
       items: itemsDto,
-      formaPago: esCtaCte ? "" : formaPago,
+      formaPago: esCtaCte ? null : formaPago, 
       estado: estadoVenta,
-      interesPorcentaje: (formaPago === "credito" && !esCtaCte) 
-        ? parseFloat(interesPorcentaje) || 0 
-        : 0,
-      // 'nota' (opcional, podrías añadir un campo si quisieras)
+      interes: calcularInteres(), 
+      // nota: (opcional)
     };
 
     try {
@@ -278,19 +279,18 @@ const RegistrarVenta: React.FC = () => {
       setEsCtaCte(false);
       setInteresPorcentaje("10");
 
-      // Recargar el catálogo para actualizar stock (o podrías actualizarlo manualmente)
-      // Por simplicidad, lo recargamos:
+      // Recargar el catálogo para actualizar stock
       const apiItems = await getArticulos();
       const mapeados: ArticuloVenta[] = apiItems.map((a) => ({
-        id: a.id,
+        id: Number(a.id), // Asegurar que sea número
         nombre: a.nombre,
+        marca: a.marca || '',
         codigoBarras: a.codigo_barras,
         precio: Number(a.precio),
         stock: a.stock ?? 0,
       }));
       setCatalogoArticulos(mapeados);
       
-      // Limpiar mensaje de éxito después de 3 segundos
       setTimeout(() => setExito(""), 3000);
 
     } catch (apiError: any) {
@@ -378,7 +378,6 @@ const RegistrarVenta: React.FC = () => {
                 checked={esCtaCte}
                 onChange={(e) => {
                   setEsCtaCte(e.target.checked);
-                  // No reseteamos formaPago aquí, la UI lo manejará
                 }}
               />
             </Form.Group>
@@ -401,7 +400,6 @@ const RegistrarVenta: React.FC = () => {
                   </Form.Select>
                 </Form.Group>
 
-                {/* Porcentaje de interés (solo para crédito y no cuenta corriente) */}
                 {formaPago === "credito" && (
                   <Form.Group className="mb-3">
                     <Form.Label>Interés para Tarjeta de Crédito (%)</Form.Label>
@@ -424,7 +422,6 @@ const RegistrarVenta: React.FC = () => {
               </>
             )}
             
-            {/* Mensaje de Cta Cte */}
             {esCtaCte && (
               <Alert variant="info" className="mt-2 mb-3">
                 <small>
@@ -453,7 +450,7 @@ const RegistrarVenta: React.FC = () => {
                     value={codigoBarras}
                     onChange={(e) => setCodigoBarras(e.target.value)}
                     autoFocus
-                    disabled={isLoading} // Deshabilitar mientras carga catálogo
+                    disabled={isLoading} 
                   />
                   <Button variant="primary" type="submit" disabled={isLoading}>
                     Agregar

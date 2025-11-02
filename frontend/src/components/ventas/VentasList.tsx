@@ -20,8 +20,15 @@ import {
 } from 'react-bootstrap-icons';
 import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/dietSanJose.png';
-import { type Venta, getVentasPorFecha, VentaEstado, FormaPago, deleteVenta } from '../../services/apiService';
-// Importamos los servicios y tipos
+// --- CORRECCIÓN DE IMPORTS ---
+// Importamos VentaEstado y FormaPago como 'type'
+import {
+  type Venta,
+  getVentasPorFecha,
+  type VentaEstado,
+  type FormaPago,
+  deleteVenta,
+} from '../../services/apiService';
 
 
 const VentasList: React.FC = () => {
@@ -75,8 +82,6 @@ const VentasList: React.FC = () => {
     const fecha = new Date(fechaHoraISO);
     // --- CORRECCIÓN DE TIMEZONE ---
     // No hacemos NINGÚN ajuste manual.
-    // Confiamos en que la DB guarda en UTC y el new Date()
-    // lo convierte a la zona horaria local del navegador.
     // ---
     
     const h = fecha.getHours();
@@ -92,7 +97,8 @@ const VentasList: React.FC = () => {
   
   // Memoización de cálculos para performance
   const ventasComputadas = useMemo(() => {
-    const completadas = ventas.filter((v) => v.estado === VentaEstado.COMPLETADA);
+    // --- CORRECCIÓN: Usar string 'Completada' ---
+    const completadas = ventas.filter((v) => v.estado === 'Completada');
     const mañana = completadas.filter(
       (v) => determinarTurno(v.fechaHora) === 'mañana',
     );
@@ -105,11 +111,12 @@ const VentasList: React.FC = () => {
   const { completadas: ventasCompletadas, mañana: ventasMañana, tarde: ventasTarde } = ventasComputadas;
 
   const calcularTotalesPorFormaPago = (ventas: Venta[]) => {
-    const totales: { [key in FormaPago]?: number } = {
-      [FormaPago.EFECTIVO]: 0,
-      [FormaPago.DEBITO]: 0,
-      [FormaPago.CREDITO]: 0,
-      [FormaPago.TRANSFERENCIA]: 0,
+    // --- CORRECCIÓN: Usar strings como keys ---
+    const totales: { [key: string]: number } = {
+      'efectivo': 0,
+      'debito': 0,
+      'credito': 0,
+      'transferencia': 0,
     };
     ventas.forEach((venta) => {
       const formaPago = venta.formaPago;
@@ -135,7 +142,9 @@ const VentasList: React.FC = () => {
     // --- CORRECCIÓN DE TIMEZONE ---
     // No hacemos NINGÚN ajuste manual.
     // ---
-    const [year, month, day] = fecha.toISOString().split("T")[0].split("-");
+    const day = String(fecha.getDate()).padStart(2, '0');
+    const month = String(fecha.getMonth() + 1).padStart(2, '0'); // Month es 0-indexed
+    const year = fecha.getFullYear();
     return `${day}/${month}/${year}`;
   };
 
@@ -194,32 +203,34 @@ const VentasList: React.FC = () => {
   };
 
   const getEstadoBadge = (estado: VentaEstado) => {
-    if (estado === VentaEstado.COMPLETADA) return "success";
-    if (estado === VentaEstado.PENDIENTE) return "warning";
-    // if (estado === "Anulada") return "secondary"; // Ya no existe
+    // --- CORRECCIÓN: Usar strings ---
+    if (estado === 'Completada') return "success";
+    if (estado === 'Pendiente') return "warning";
     return "secondary";
   };
 
   const getFormaPagoBadge = (formaPago: FormaPago) => {
-    const badges: { [key in FormaPago]: string } = {
-      [FormaPago.EFECTIVO]: "success",
-      [FormaPago.DEBITO]: "info",
-      [FormaPago.CREDITO]: "warning",
-      [FormaPago.TRANSFERENCIA]: "primary",
+    // --- CORRECCIÓN: Usar strings ---
+    const badges: { [key: string]: string } = {
+      'efectivo': "success",
+      'debito': "info",
+      'credito': "warning",
+      'transferencia': "primary",
     };
     return badges[formaPago] || "secondary";
   };
 
   // Función para mostrar la forma de pago correctamente
   const formatearFormaPago = (formaPago: FormaPago | null, estado: VentaEstado) => {
-    if (estado === VentaEstado.PENDIENTE) return "Cta. Cte.";
+    // --- CORRECCIÓN: Usar strings ---
+    if (estado === 'Pendiente') return "Cta. Cte.";
     if (!formaPago) return "N/A";
 
     switch (formaPago) {
-      case FormaPago.EFECTIVO: return "Efectivo";
-      case FormaPago.DEBITO: return "Débito";
-      case FormaPago.CREDITO: return "Crédito";
-      case FormaPago.TRANSFERENCIA: return "Transferencia";
+      case 'efectivo': return "Efectivo";
+      case 'debito': return "Débito";
+      case 'credito': return "Crédito";
+      case 'transferencia': return "Transferencia";
       default: return formaPago;
     }
   };
@@ -354,14 +365,16 @@ const VentasList: React.FC = () => {
                             <Badge
                               bg={
                                 venta.formaPago &&
-                                venta.estado === VentaEstado.COMPLETADA
+                                // --- CORRECCIÓN: Usar string ---
+                                venta.estado === 'Completada'
                                   ? getFormaPagoBadge(venta.formaPago)
                                   : "secondary"
                               }
                             >
                               {formatearFormaPago(venta.formaPago, venta.estado)}
                             </Badge>
-                            {venta.formaPago === FormaPago.CREDITO &&
+                            {/* --- CORRECCIÓN: Usar string --- */}
+                            {venta.formaPago === 'credito' &&
                               Number(venta.interes) > 0 && (
                                 <div
                                   className="text-muted"
@@ -427,6 +440,7 @@ const VentasList: React.FC = () => {
                                 💵 Efectivo
                               </div>
                               <strong>
+                                {/* --- CORRECCIÓN: Usar string --- */}
                                 ${totalesMañana.efectivo?.toFixed(2) || '0.00'}
                               </strong>
                             </div>
