@@ -14,6 +14,7 @@ import CuentasCorrientes from './components/ventas/CuentasCorrientes';
 import CrearPedido from './components/proveedores/CrearPedido';
 import ListaPedidos from './components/proveedores/ListaPedidos';
 import logo from './assets/dietSanJose.png';
+import RegistrarRetiro from './components/caja/RegistrarRetiro';
 
 function App() {
   return (
@@ -47,6 +48,7 @@ function App() {
           <Route path="ventas" element={<VentasList />} />
           <Route path="ventas/nueva" element={<RegistrarVenta />} />
           <Route path="ventas/cuentas-corrientes" element={<CuentasCorrientes />} />
+          <Route path="/ventas/nuevo-retiro" element={<RegistrarRetiro />} />
         </Route>
       </Routes>
     </Router>

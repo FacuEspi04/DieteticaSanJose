@@ -9,6 +9,7 @@ import { ProveedoresModule } from './proveedores/proveedores.module';
 import { PedidosModule } from './pedidos/pedidos.module';
 import { VentasModule } from './ventas/ventas.module';
 import { ClientesModule } from './clientes/clientes.module'; // <-- 1. IMPORTAR
+import { RetirosModule } from './retiros/retiros.module';
 
 @Module({
   imports: [
@@ -30,7 +31,8 @@ import { ClientesModule } from './clientes/clientes.module'; // <-- 1. IMPORTAR
     ProveedoresModule,
     PedidosModule,
     VentasModule,
-    ClientesModule, // <-- 2. AÑADIR A IMPORTS
+    ClientesModule,
+    RetirosModule, // <-- 2. AÑADIR A IMPORTS
   ],
   controllers: [AppController],
   providers: [AppService],

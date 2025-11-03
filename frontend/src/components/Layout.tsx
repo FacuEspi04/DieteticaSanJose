@@ -41,7 +41,7 @@ const Layout: React.FC<LayoutProps> = ({
                   style={{ color: 'white' }}
                 >
                   <NavDropdown.Item as={Link} to="/ventas" onClick={() => setSidebarOpen(false)}>
-                    Lista de Ventas
+                    Resumen de Caja
                   </NavDropdown.Item>
                   <NavDropdown.Item as={Link} to="/ventas/cuentas-corrientes" onClick={() => setSidebarOpen(false)}>
                     Cuentas Corrientes
@@ -49,6 +49,19 @@ const Layout: React.FC<LayoutProps> = ({
                   <NavDropdown.Item as={Link} to="/ventas/nueva" onClick={() => setSidebarOpen(false)}>
                     Nueva Venta
                   </NavDropdown.Item>
+                  
+                  {/* --- MODIFICACIÓN AQUÍ --- */}
+                  <NavDropdown.Divider />
+                  <NavDropdown.Item 
+                    as={Link} 
+                    to="/ventas/nuevo-retiro" // La ruta que definimos
+                    onClick={() => setSidebarOpen(false)}
+                    className="text-danger" // Opcional: para que resalte
+                  >
+                    Registrar Retiro
+                  </NavDropdown.Item>
+                  {/* --- FIN DE LA MODIFICACIÓN --- */}
+                  
                 </NavDropdown>
               );
             }

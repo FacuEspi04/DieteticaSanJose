@@ -96,11 +96,9 @@ export interface CreatePedidoDto {
 
 // --- Tipos de Ventas (Actualizados) ---
 
-// --- CORRECCIÓN 1: Usamos 'type' en lugar de 'enum' para el frontend ---
 export type FormaPago = 'efectivo' | 'debito' | 'credito' | 'transferencia';
 
 export type VentaEstado = 'Completada' | 'Pendiente';
-// 'Anulada' se eliminó
 
 export interface VentaDetalle {
   id: number;
@@ -146,6 +144,22 @@ export interface RegistrarPagoDto {
   formaPago: FormaPago;
   interes?: number;
 }
+
+// --- 1. AÑADIDO: Tipos de Retiros ---
+export interface Retiro {
+  id: number;
+  fechaHora: Date;
+  monto: number;
+  motivo: string;
+  turno: 'mañana' | 'tarde' | 'fuera';
+}
+
+export interface CreateRetiroDto {
+  monto: number;
+  motivo: string;
+}
+// --- FIN DE Tipos de Retiros ---
+
 
 // --- Servicios de Artículos ---
 
@@ -306,7 +320,6 @@ export const createPedido = async (
   return await response.json();
 };
 
-// --- NUEVA FUNCIÓN AÑADIDA ---
 export const deletePedido = async (
   id: number,
 ): Promise<{ message: string }> => {
@@ -319,7 +332,6 @@ export const deletePedido = async (
   }
   return await response.json();
 };
-// --- FIN DE LA FUNCIÓN ---
 
 // --- Servicios de Ventas (Actualizados) ---
 
@@ -370,8 +382,6 @@ export const registrarPagoVenta = async (
   return await response.json();
 };
 
-// --- anularVenta ELIMINADA ---
-
 export const deleteVenta = async (
   ventaId: number, // Usamos el 'id'
 ): Promise<{ message: string; ventaEliminada: number }> => {
@@ -381,6 +391,29 @@ export const deleteVenta = async (
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.message || 'Error al eliminar la venta');
+  }
+  return await response.json();
+};
+
+// --- 2. AÑADIDO: Servicios de Retiros ---
+
+export const getRetirosPorFecha = async (fecha: string): Promise<Retiro[]> => {
+  const response = await fetch(`${API_URL}/retiros?fecha=${fecha}`);
+  if (!response.ok) {
+    throw new Error('Error al obtener los retiros');
+  }
+  return await response.json();
+};
+
+export const createRetiro = async (retiroData: CreateRetiroDto): Promise<Retiro> => {
+  const response = await fetch(`${API_URL}/retiros`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(retiroData),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Error al registrar el retiro');
   }
   return await response.json();
 };

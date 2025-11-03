@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Articulo } from 'src/articulos/articulo.entity';
 import { Cliente } from 'src/clientes/cliente.entity';
+import { determinarTurno } from 'src/common/turnos.util';
 import {
   DataSource,
   Repository,
@@ -12,7 +13,7 @@ import {
 } from 'typeorm';
 import { CreateVentaDto, RegistrarPagoDto } from './dto/venta.dto';
 import { VentaDetalle } from './venta-detalle.entity';
-import { Venta, TurnoVenta, VentaEstado } from './venta.entity';
+import { Venta, VentaEstado } from './venta.entity';
 
 @Injectable()
 export class VentasService {
@@ -29,25 +30,6 @@ export class VentasService {
     private readonly clienteRepository: Repository<Cliente>,
     private readonly dataSource: DataSource,
   ) {}
-
-  /**
-   * Determina el turno de la venta (mañana, tarde, fuera).
-   * Asume que la fecha 'new Date()' está en la zona horaria local del servidor.
-   */
-  private determinarTurno(fecha: Date): TurnoVenta {
-    // Ya no usamos la conversión a UTC-3, confiamos en la hora local del servidor
-    const hora = fecha.getHours();
-    const minutos = fecha.getMinutes();
-    const tiempoEnMinutos = hora * 60 + minutos;
-
-    // Mañana: 9:00 - 13:30 (540 - 810 minutos)
-    if (tiempoEnMinutos >= 540 && tiempoEnMinutos <= 810)
-      return TurnoVenta.MANANA;
-    // Tarde: 16:30 - 21:00 (990 - 1260 minutos)
-    if (tiempoEnMinutos >= 990 && tiempoEnMinutos <= 1260)
-      return TurnoVenta.TARDE;
-    return TurnoVenta.FUERA;
-  }
 
   /**
    * Crea una nueva venta. Esta es una operación transaccional.
@@ -70,9 +52,10 @@ export class VentasService {
       const [maxResult] = await queryRunner.manager.query(
         'SELECT MAX(numeroVenta) as maxNum FROM ventas FOR UPDATE',
       );
+      // Corregido: Forzar conversión a Número
       const siguienteNumeroVenta = (Number(maxResult?.maxNum) || 0) + 1;
 
-      // 2. Validar cliente (si es cuenta corriente)
+      // 2. Validar cliente
       if (estado === VentaEstado.PENDIENTE && !clienteId && !clienteNombre) {
         throw new Error(
           'El nombre del cliente o el ID del cliente es obligatorio para cuentas corrientes.',
@@ -83,7 +66,7 @@ export class VentasService {
       for (const itemDto of items) {
         const articulo = await queryRunner.manager.findOne(Articulo, {
           where: { id: itemDto.articuloId },
-          lock: { mode: 'pessimistic_write' }, // Bloquear la fila del artículo
+          lock: { mode: 'pessimistic_write' }, 
         });
 
         if (!articulo) {
@@ -97,16 +80,13 @@ export class VentasService {
           );
         }
 
-        // Descontar stock
         articulo.stock -= itemDto.cantidad;
         await queryRunner.manager.save(Articulo, articulo);
 
-        // Calcular subtotales
         const precioUnitario = Number(articulo.precio);
         const subtotalItem = precioUnitario * itemDto.cantidad;
         subtotalVenta += subtotalItem;
 
-        // Crear detalle
         const detalle = new VentaDetalle();
         detalle.articuloId = itemDto.articuloId;
         detalle.cantidad = itemDto.cantidad;
@@ -118,12 +98,12 @@ export class VentasService {
       // 4. Calcular totales finales
       const interesCalculado = interes || 0;
       totalVenta = subtotalVenta + interesCalculado;
-      const ahora = new Date(); // Fecha/hora local del servidor
+      const ahora = new Date();
 
       // 5. Crear la Venta principal
       const nuevaVenta = new Venta();
-      nuevaVenta.numeroVenta = siguienteNumeroVenta;
-      nuevaVenta.fechaHora = ahora; // Guardamos la hora local
+      nuevaVenta.numeroVenta = siguienteNumeroVenta; 
+      nuevaVenta.fechaHora = ahora;
       nuevaVenta.clienteId = clienteId || null;
       nuevaVenta.clienteNombre = clienteNombre || 'Cliente General';
       nuevaVenta.subtotal = subtotalVenta;
@@ -132,13 +112,13 @@ export class VentasService {
       nuevaVenta.formaPago =
         estado === VentaEstado.COMPLETADA ? formaPago : null;
       nuevaVenta.estado = estado;
-      nuevaVenta.turno = this.determinarTurno(ahora); // Calculado sobre la hora local
+      nuevaVenta.turno = determinarTurno(ahora); // Usamos la utilidad importada
 
       const ventaGuardada = await queryRunner.manager.save(Venta, nuevaVenta);
 
       // 6. Asignar la VENTA completa al detalle y guardarlos
       for (const detalle of detallesVenta) {
-        detalle.venta = ventaGuardada;
+        detalle.venta = ventaGuardada; // Corregido: Asignar el objeto
         await queryRunner.manager.save(VentaDetalle, detalle);
       }
 
@@ -163,16 +143,15 @@ export class VentasService {
     const where: FindOptionsWhere<Venta> | FindOptionsWhere<Venta>[] = {};
 
     if (fecha) {
-      // CORRECCIÓN TIMEZONE: Forzamos la interpretación como hora local
-      const fechaInicio = new Date(`${fecha}T00:00:00`); // 2025-11-01 00:00:00 Local
-      const fechaFin = new Date(`${fecha}T23:59:59`); // 2025-11-01 23:59:59 Local
-
+      // Corregido: Filtro de zona horaria
+      const fechaInicio = new Date(`${fecha}T00:00:00`); // Local
+      const fechaFin = new Date(`${fecha}T23:59:59`); // Local
       where.fechaHora = Between(fechaInicio, fechaFin);
     }
 
     return this.ventaRepository.find({
       where,
-      relations: ['cliente', 'items', 'items.articulo'], // Cargar todo para la lista
+      relations: ['cliente', 'items', 'items.articulo'], 
       order: { fechaHora: 'DESC' },
     });
   }
@@ -183,7 +162,7 @@ export class VentasService {
   async findPendientes(): Promise<Venta[]> {
     return this.ventaRepository.find({
       where: { estado: VentaEstado.PENDIENTE },
-      relations: ['items', 'items.articulo', 'cliente'], // Cargar todo para el modal
+      relations: ['items', 'items.articulo', 'cliente'], 
       order: { fechaHora: 'ASC' },
     });
   }
@@ -220,7 +199,7 @@ export class VentasService {
       throw new Error('Esta venta no está pendiente de pago.');
     }
 
-    const ahora = new Date(); // Hora local del servidor
+    const ahora = new Date(); 
     const interesCalculado = interes || 0;
     const totalActualizado = venta.subtotal + interesCalculado;
 
@@ -228,16 +207,14 @@ export class VentasService {
     venta.formaPago = formaPago;
     venta.interes = interesCalculado;
     venta.total = totalActualizado;
-    venta.fechaHora = ahora; // La fecha de la venta se actualiza al día del pago
-    venta.turno = this.determinarTurno(ahora); // Actualiza el turno
+    venta.fechaHora = ahora; 
+    venta.turno = determinarTurno(ahora); // Usamos la utilidad importada
 
     this.logger.log(
       `Pago registrado para Venta #${venta.numeroVenta}. Nuevo estado: ${venta.estado}`,
     );
     return this.ventaRepository.save(venta);
   }
-  
-  // --- MÉTODO ANULAR ELIMINADO ---
   
   /**
    * Elimina una venta específica de forma permanente (HARD DELETE).
@@ -249,7 +226,6 @@ export class VentasService {
     await queryRunner.startTransaction();
 
     try {
-      // 1. Buscar la venta con sus items
       const venta = await queryRunner.manager.findOne(Venta, {
         where: { id },
         relations: ['items'],
@@ -259,11 +235,11 @@ export class VentasService {
         throw new NotFoundException(`Venta con ID #${id} no encontrada.`);
       }
 
-      // 2. Devolver el stock (ya no existe el estado ANULADA)
       if (
         venta.estado === VentaEstado.COMPLETADA ||
         venta.estado === VentaEstado.PENDIENTE
       ) {
+        // 1. Devolver el stock
         for (const item of venta.items) {
           await queryRunner.manager.increment(
             Articulo,
@@ -272,16 +248,15 @@ export class VentasService {
             item.cantidad,
           );
           this.logger.log(
-            `Stock restaurado: ${item.cantidad} a Artículo ID #${item.articuloId}`,
+            `Stock devuelto: ${item.cantidad} a Artículo ID #${item.articuloId}`,
           );
         }
       }
 
-      // 3. Eliminar los detalles de la venta
-      // Primero eliminamos los detalles
+      // 2. Eliminar los detalles de la venta
       await queryRunner.manager.delete(VentaDetalle, { venta: { id } });
 
-      // 4. Eliminar la venta
+      // 3. Eliminar la venta
       await queryRunner.manager.delete(Venta, { id });
 
       await queryRunner.commitTransaction();
@@ -301,6 +276,7 @@ export class VentasService {
     }
   }
 
+  // --- MÉTODO 'deleteAll' AÑADIDO DE VUELTA ---
   /**
    * Elimina todas las ventas y sus detalles (SOLO PARA DESARROLLO).
    * Restaura el stock de los artículos vendidos.
@@ -318,7 +294,6 @@ export class VentasService {
 
       // 2. Devolver el stock
       for (const venta of ventas) {
-        // (ya no existe el estado ANULADA)
         if (
           venta.estado === VentaEstado.COMPLETADA ||
           venta.estado === VentaEstado.PENDIENTE
@@ -343,7 +318,7 @@ export class VentasService {
       // 4. Eliminar todas las ventas
       const result = await queryRunner.manager.delete(Venta, {});
 
-      // 5. Resetear el autoincrement (opcional)
+      // 5. Resetear el autoincrement (opcional y específico de MySQL)
       await queryRunner.manager.query('ALTER TABLE ventas AUTO_INCREMENT = 1');
       await queryRunner.manager.query(
         'ALTER TABLE venta_detalles AUTO_INCREMENT = 1',
