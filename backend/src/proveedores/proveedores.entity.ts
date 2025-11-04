@@ -1,4 +1,3 @@
-
 import { Pedido } from 'src/pedidos/pedido.entity';
 import {
   Column,
@@ -10,7 +9,7 @@ import {
 
 @Entity({ name: 'proveedores' })
 export class Proveedor {
-  @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
+  @PrimaryGeneratedColumn() // <-- CAMBIO: Quitado "type: 'bigint'" y "unsigned"
   id: number;
 
   @Column({ type: 'varchar', length: 255 })
@@ -37,7 +36,7 @@ export class Proveedor {
   @Column({ type: 'boolean', default: true })
   activo: boolean;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime' })
+  @CreateDateColumn({ name: 'created_at' }) // <-- CAMBIO: Quitado "type: 'datetime'"
   createdAt: Date;
 
   @OneToMany(() => Pedido, (pedido) => pedido.proveedor)

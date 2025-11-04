@@ -12,6 +12,14 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
+# Ejecutable y base de datos local
+DieteticaSanJose.exe
+dietetica.db
+
+# Por si se generan más archivos similares
+*.exe
+*.db
+
 # OS
 .DS_Store
 

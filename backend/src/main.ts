@@ -1,19 +1,19 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { AppModule } from './app.module'; 
 import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // --- ESTA ES LA CONFIGURACIÓN CRUCIAL ---
-  // Reemplaza el app.enableCors() simple por este bloque
+  
+  
   app.enableCors({
-    origin: '*', // O para más seguridad: 'http://localhost:5173'
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', // <-- Asegúrate de que PATCH esté aquí
+    origin: '*', 
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE', 
     allowedHeaders: 'Content-Type, Accept',
   });
-  // --- FIN DE LA CORRECCIÓN ---
-
+  
+  //app.setGlobalPrefix('api');
   // Pipe de validación global
   app.useGlobalPipes(
     new ValidationPipe({
@@ -23,7 +23,6 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(process.env.PORT || 3000);
+  await app.listen(3000);
 }
 bootstrap();
-

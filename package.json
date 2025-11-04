@@ -1,0 +1,24 @@
+{
+  
+  "dependencies": {
+    "better-sqlite3": "^9.6.0"
+  },
+  
+  "bin": "backend/dist/main.js",
+  "pkg": {
+    "scripts": [
+      "backend/dist/**/*.js"
+    ],
+    "assets": [
+      "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
+      "backend/public/**/*"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ]
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  }
+}
+

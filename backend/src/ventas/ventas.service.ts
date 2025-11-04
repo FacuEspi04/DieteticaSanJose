@@ -49,8 +49,11 @@ export class VentasService {
       const detallesVenta: VentaDetalle[] = [];
 
       // 1. OBTENER EL SIGUIENTE NUMERO DE VENTA
+      // CAMBIO: Quitado "FOR UPDATE" (no es compatible con SQLite en un MAX).
+      // La transacción en SQLite bloquea el archivo, lo que previene "race conditions".
+      // CAMBIO: Añadidas comillas dobles a "numeroVenta"
       const [maxResult] = await queryRunner.manager.query(
-        'SELECT MAX(numeroVenta) as maxNum FROM ventas FOR UPDATE',
+        'SELECT MAX("numeroVenta") as maxNum FROM ventas',
       );
       // Corregido: Forzar conversión a Número
       const siguienteNumeroVenta = (Number(maxResult?.maxNum) || 0) + 1;
@@ -64,9 +67,11 @@ export class VentasService {
 
       // 3. Procesar artículos y descontar stock
       for (const itemDto of items) {
+        // CAMBIO: Quitado el lock "pessimistic_write" (no soportado por SQLite).
+        // La transacción ya está bloqueando la base de datos.
         const articulo = await queryRunner.manager.findOne(Articulo, {
           where: { id: itemDto.articuloId },
-          lock: { mode: 'pessimistic_write' }, 
+          // lock: { mode: 'pessimistic_write' },  <-- CAMBIO: LÍNEA ELIMINADA
         });
 
         if (!articulo) {
@@ -102,7 +107,7 @@ export class VentasService {
 
       // 5. Crear la Venta principal
       const nuevaVenta = new Venta();
-      nuevaVenta.numeroVenta = siguienteNumeroVenta; 
+      nuevaVenta.numeroVenta = siguienteNumeroVenta;
       nuevaVenta.fechaHora = ahora;
       nuevaVenta.clienteId = clienteId || null;
       nuevaVenta.clienteNombre = clienteNombre || 'Cliente General';
@@ -151,7 +156,7 @@ export class VentasService {
 
     return this.ventaRepository.find({
       where,
-      relations: ['cliente', 'items', 'items.articulo'], 
+      relations: ['cliente', 'items', 'items.articulo'],
       order: { fechaHora: 'DESC' },
     });
   }
@@ -162,7 +167,7 @@ export class VentasService {
   async findPendientes(): Promise<Venta[]> {
     return this.ventaRepository.find({
       where: { estado: VentaEstado.PENDIENTE },
-      relations: ['items', 'items.articulo', 'cliente'], 
+      relations: ['items', 'items.articulo', 'cliente'],
       order: { fechaHora: 'ASC' },
     });
   }
@@ -199,7 +204,7 @@ export class VentasService {
       throw new Error('Esta venta no está pendiente de pago.');
     }
 
-    const ahora = new Date(); 
+    const ahora = new Date();
     const interesCalculado = interes || 0;
     const totalActualizado = venta.subtotal + interesCalculado;
 
@@ -207,7 +212,7 @@ export class VentasService {
     venta.formaPago = formaPago;
     venta.interes = interesCalculado;
     venta.total = totalActualizado;
-    venta.fechaHora = ahora; 
+    venta.fechaHora = ahora;
     venta.turno = determinarTurno(ahora); // Usamos la utilidad importada
 
     this.logger.log(
@@ -215,7 +220,7 @@ export class VentasService {
     );
     return this.ventaRepository.save(venta);
   }
-  
+
   /**
    * Elimina una venta específica de forma permanente (HARD DELETE).
    * Restaura el stock de los artículos vendidos.
@@ -253,8 +258,8 @@ export class VentasService {
         }
       }
 
-      // 2. Eliminar los detalles de la venta
-      await queryRunner.manager.delete(VentaDetalle, { venta: { id } });
+      // 2. Eliminar los detalles de la venta (ya se eliminan por 'onDelete: CASCADE')
+      // await queryRunner.manager.delete(VentaDetalle, { venta: { id } });
 
       // 3. Eliminar la venta
       await queryRunner.manager.delete(Venta, { id });
@@ -318,10 +323,13 @@ export class VentasService {
       // 4. Eliminar todas las ventas
       const result = await queryRunner.manager.delete(Venta, {});
 
-      // 5. Resetear el autoincrement (opcional y específico de MySQL)
-      await queryRunner.manager.query('ALTER TABLE ventas AUTO_INCREMENT = 1');
+      // 5. Resetear el autoincrement (CAMBIO: Comando para SQLite)
+      // SQLite usa la tabla 'sqlite_sequence' para los autoincrement
       await queryRunner.manager.query(
-        'ALTER TABLE venta_detalles AUTO_INCREMENT = 1',
+        `DELETE FROM sqlite_sequence WHERE name = 'ventas'`,
+      );
+      await queryRunner.manager.query(
+        `DELETE FROM sqlite_sequence WHERE name = 'venta_detalles'`,
       );
 
       await queryRunner.commitTransaction();

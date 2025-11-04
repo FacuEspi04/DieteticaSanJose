@@ -8,15 +8,25 @@ export interface Categoria {
   nombre: string;
 }
 
+// --- 1. NUEVOS TIPOS DE MARCA ---
+export interface Marca {
+  id: number;
+  nombre: string;
+}
+
+export interface CreateMarcaDto {
+  nombre: string;
+}
+
 export interface Articulo {
   id: number;
   nombre: string;
-  marca: string;
+  marca: Marca | null; // <-- CORREGIDO: Ahora es un objeto
   codigo_barras: string;
-  precio: string | number; // La API lo envía como string
+  precio: string | number; 
   stock: number;
   stock_minimo: number;
-  categoria: Categoria; // La API nos dará el objeto categoría anidado
+  categoria: Categoria | null; // <-- CORREGIDO: Acepta null
   activo: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -24,7 +34,7 @@ export interface Articulo {
 
 export interface CreateArticuloDto {
   nombre: string;
-  marca?: string;
+  marcaId?: number; // <-- CORREGIDO: Es marcaId
   codigo_barras: string;
   precio: number;
   stock: number;
@@ -65,7 +75,7 @@ export interface CreateProveedorDto {
 export interface PedidoItem {
   id: number;
   articuloId: number;
-  articulo: Articulo; // La API nos dará el objeto artículo anidado
+  articulo: Articulo; 
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
@@ -74,7 +84,7 @@ export interface PedidoItem {
 export interface Pedido {
   id: number;
   proveedorId: number;
-  proveedor: Proveedor; // La API nos dará el objeto proveedor anidado
+  proveedor: Proveedor; 
   fechaPedido: Date;
   estado: string;
   total: number;
@@ -96,6 +106,7 @@ export interface CreatePedidoDto {
 
 // --- Tipos de Ventas (Actualizados) ---
 
+// Usamos 'type' en lugar de 'enum' para el frontend
 export type FormaPago = 'efectivo' | 'debito' | 'credito' | 'transferencia';
 
 export type VentaEstado = 'Completada' | 'Pendiente';
@@ -103,14 +114,14 @@ export type VentaEstado = 'Completada' | 'Pendiente';
 export interface VentaDetalle {
   id: number;
   articuloId: number;
-  articulo: Articulo; // Eager loaded
+  articulo: Articulo; 
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
 }
 
 export interface Venta {
-  id: number; // El ID principal
+  id: number; 
   numeroVenta: number;
   clienteId: number | null;
   clienteNombre: string;
@@ -118,7 +129,7 @@ export interface Venta {
   subtotal: number;
   interes: number;
   total: number;
-  formaPago: FormaPago | null; // Acepta null
+  formaPago: FormaPago | null; 
   estado: VentaEstado;
   turno: string;
   items: VentaDetalle[];
@@ -134,8 +145,8 @@ export interface CreateVentaDto {
   clienteNombre: string;
   clienteId?: number;
   items: CreateVentaItemDto[];
-  formaPago: FormaPago | null; // Acepta null
-  estado: VentaEstado; // 'Completada' o 'Pendiente'
+  formaPago: FormaPago | null; 
+  estado: VentaEstado; 
   interes?: number;
   nota?: string;
 }
@@ -145,7 +156,7 @@ export interface RegistrarPagoDto {
   interes?: number;
 }
 
-// --- 1. AÑADIDO: Tipos de Retiros ---
+// --- Tipos de Retiros ---
 export interface Retiro {
   id: number;
   fechaHora: Date;
@@ -158,8 +169,6 @@ export interface CreateRetiroDto {
   monto: number;
   motivo: string;
 }
-// --- FIN DE Tipos de Retiros ---
-
 
 // --- Servicios de Artículos ---
 
@@ -232,6 +241,31 @@ export const getCategorias = async (): Promise<Categoria[]> => {
   }
   return await response.json();
 };
+
+// --- 2. NUEVOS SERVICIOS DE MARCAS ---
+export const getMarcas = async (): Promise<Marca[]> => {
+  const response = await fetch(`${API_URL}/marcas`);
+  if (!response.ok) {
+    throw new Error('Error al obtener las marcas');
+  }
+  return await response.json();
+};
+
+export const createMarca = async (
+  marcaData: CreateMarcaDto,
+): Promise<Marca> => {
+  const response = await fetch(`${API_URL}/marcas`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(marcaData),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message.join(', ') || 'Error al crear la marca');
+  }
+  return await response.json();
+};
+// --- FIN SERVICIOS DE MARCAS ---
 
 // --- Servicios de Proveedores ---
 
@@ -395,7 +429,7 @@ export const deleteVenta = async (
   return await response.json();
 };
 
-// --- 2. AÑADIDO: Servicios de Retiros ---
+// --- Servicios de Retiros ---
 
 export const getRetirosPorFecha = async (fecha: string): Promise<Retiro[]> => {
   const response = await fetch(`${API_URL}/retiros?fecha=${fecha}`);

@@ -15,7 +15,7 @@ import {
   ExclamationTriangle,
   PlusCircle,
   Trash,
-  PencilSquare, // <-- IMPORTAR ÍCONO DE EDITAR
+  PencilSquare,
 } from 'react-bootstrap-icons';
 import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/dietSanJose.png';
@@ -61,7 +61,6 @@ const ArticuloList: React.FC = () => {
     setShowModal(true);
   };
   
-  // --- FUNCIÓN NUEVA ---
   const handleEditar = (id: number) => {
     navigate(`/articulos/editar/${id}`);
   };
@@ -95,8 +94,9 @@ const ArticuloList: React.FC = () => {
           articulo.codigo_barras.includes(terminoBusqueda)) ||
         (articulo.nombre &&
           articulo.nombre.toLowerCase().includes(terminoBusqueda)) ||
+        // Ahora buscamos en el objeto 'marca'
         (articulo.marca &&
-          articulo.marca.toLowerCase().includes(terminoBusqueda))
+          articulo.marca.nombre.toLowerCase().includes(terminoBusqueda))
       );
     });
   }, [articulos, busqueda]);
@@ -132,16 +132,12 @@ const ArticuloList: React.FC = () => {
         </Card.Header>
         <Card.Body>
           
-          {/* --- MODIFICACIÓN AQUÍ ---
-              Añadimos el botón de "Crear Pedido" dentro de la alerta de stock bajo
-          */}
           {articulosStockBajo.length > 0 && (
             <Alert variant="warning" className="mb-3">
               <div className="d-flex justify-content-between align-items-center">
-                {/* Contenido de la alerta (Izquierda) */}
                 <div className="d-flex align-items-center">
                   <ExclamationTriangle
-                    size={32} // Un poco más grande para que se note
+                    size={32}
                     className="me-3 text-warning"
                   />
                   <div>
@@ -150,7 +146,6 @@ const ArticuloList: React.FC = () => {
                       producto
                       {articulosStockBajo.length !== 1 ? "s" : ""}:
                     </strong>
-                    {/* Usamos 'small' y 'fontSize' para que la lista no sea tan grande */}
                     <small> 
                       <ul className="mb-0 mt-1" style={{ fontSize: "0.9em" }}>
                         {articulosStockBajo.map((art) => (
@@ -164,7 +159,6 @@ const ArticuloList: React.FC = () => {
                   </div>
                 </div>
                 
-                {/* Botón nuevo para ir a Pedidos (Derecha) */}
                 <div className="ms-3">
                   <Button
                     variant="primary" 
@@ -178,15 +172,13 @@ const ArticuloList: React.FC = () => {
               </div>
             </Alert>
           )}
-          {/* --- FIN DE LA MODIFICACIÓN --- */}
-
 
           {error && !isDeleting && (
             <Alert variant="danger" onClose={() => setError(null)} dismissible>
               {error}
             </Alert>
           )}
-          {/* ... (Form.Group de Búsqueda no cambia) ... */}
+
           <Form.Group className="mb-3">
             <InputGroup>
               <InputGroup.Text>
@@ -235,7 +227,17 @@ const ArticuloList: React.FC = () => {
                         <code>{articulo.codigo_barras}</code>
                       </td>
                       <td>{articulo.nombre}</td>
-                      <td>{articulo.marca || <small className="text-muted">N/A</small>}</td>
+                      
+                      {/* --- ESTA ES LA LÍNEA CORREGIDA --- */}
+                      <td>
+                        {/* Verificamos si 'articulo.marca' existe (no es null)
+                          Si existe, mostramos 'articulo.marca.nombre'
+                          Si no, mostramos 'N/A'
+                        */}
+                        {articulo.marca ? articulo.marca.nombre : <small className="text-muted">N/A</small>}
+                      </td>
+                      {/* --- FIN DE LA CORRECCIÓN --- */}
+                      
                       <td>
                         {articulo.stock <= articulo.stock_minimo ? (
                           <Badge bg="danger">{articulo.stock}</Badge>
@@ -245,19 +247,17 @@ const ArticuloList: React.FC = () => {
                       </td>
                       <td>{articulo.stock_minimo}</td>
                       <td>${Number(articulo.precio).toFixed(2)}</td>
-                      {/* Esta es tu celda de Acciones original, la respetamos */}
-                      <td className="text-center">
+                      <td className="text-center d-flex gap-2 justify-content-center">
                         <Button
-                          variant="outline-primary" // Botón de editar
+                          variant="outline-primary"
                           size="sm"
-                          className="me-2" // Margen a la derecha
                           onClick={() => handleEditar(articulo.id)}
                           title="Editar artículo"
                         >
                           <PencilSquare />
                         </Button>
                         <Button
-                          variant="danger"
+                          variant="outline-danger"
                           size="sm"
                           onClick={() => confirmarEliminacion(articulo)}
                           title="Eliminar artículo"
@@ -282,7 +282,7 @@ const ArticuloList: React.FC = () => {
         </Card.Body>
       </Card>
 
-      {/* ... (Modal de confirmación de borrado no cambia) ... */}
+      {/* Modal de confirmación de borrado */}
       <Modal show={showModal} onHide={() => setShowModal(false)} centered>
         <Modal.Header
           closeButton
@@ -298,9 +298,10 @@ const ArticuloList: React.FC = () => {
               <div className="alert alert-warning">
                 <strong>{articuloAEliminar.nombre}</strong>
                 <br />
+                {/* --- TAMBIÉN CORREGIMOS AQUÍ --- */}
                 {articuloAEliminar.marca && (
                   <>
-                    Marca: {articuloAEliminar.marca}
+                    Marca: {articuloAEliminar.marca.nombre} 
                     <br />
                   </>
                 )}

@@ -12,7 +12,6 @@ import {
 import { VentaDetalle } from './venta-detalle.entity';
 import { Cliente } from 'src/clientes/cliente.entity';
 
-
 // Enums (los moví aquí para que sean fáciles de exportar)
 export enum FormaPago {
   EFECTIVO = 'efectivo',
@@ -35,16 +34,16 @@ export enum TurnoVenta {
 
 @Entity({ name: 'ventas' })
 export class Venta {
-  @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
+  @PrimaryGeneratedColumn() // <-- CAMBIO: Quitado "type: 'bigint'"
   id: number; // Esta es la PK interna
 
-  @Column({ type: 'bigint', unsigned: true, unique: true })
+  @Column({ type: 'integer', unique: true }) // <-- CAMBIO: 'bigint' a 'integer'
   numeroVenta: number; // <-- Lo asignamos por código en el servicio
 
-  @Column({ type: 'datetime' })
+  @Column({ type: 'datetime' }) // <-- 'datetime' está OK en SQLite
   fechaHora: Date;
 
-  @Column({ name: 'cliente_id', type: 'bigint', unsigned: true, nullable: true })
+  @Column({ name: 'cliente_id', type: 'integer', nullable: true }) // <-- CAMBIO: 'bigint' a 'integer'
   clienteId: number | null; // Acepta null
 
   @ManyToOne(() => Cliente, { nullable: true, eager: true })
@@ -70,34 +69,29 @@ export class Venta {
   total: number;
 
   @Column({
-    type: 'enum',
+    type: 'varchar', // <-- CORRECTO para SQLite
     enum: FormaPago,
     nullable: true, // <-- Acepta null (para Cta. Cte. y Anuladas)
   })
   formaPago: FormaPago | null;
 
   @Column({
-    type: 'enum',
+    type: 'varchar', // <-- CORRECTO para SQLite
     enum: VentaEstado,
   })
   estado: VentaEstado;
 
   @Column({
-    type: 'enum',
+    type: 'varchar', // <-- CORRECTO para SQLite
     enum: TurnoVenta,
   })
   turno: TurnoVenta;
 
-  // --- Eliminamos los campos de anulación ---
-  // @Column({ name: 'anulado_ts', type: 'datetime', nullable: true })
-  // anuladoTs: Date | null;
-  // @Column({ name: 'motivo_anulacion', type: 'text', nullable: true })
-  // motivoAnulacion: string | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime' })
+  @CreateDateColumn({ name: 'created_at' }) // <-- CAMBIO: Quitado "type: 'datetime'"
   createdAt: Date;
-  
-  @UpdateDateColumn({ name: 'updated_at', type: 'datetime' })
+
+  @UpdateDateColumn({ name: 'updated_at' }) // <-- CAMBIO: Quitado "type: 'datetime'"
   updatedAt: Date;
 }
 

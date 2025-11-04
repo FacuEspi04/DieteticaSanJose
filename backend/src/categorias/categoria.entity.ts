@@ -2,7 +2,7 @@ import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity({ name: 'categorias' })
 export class Categoria {
-  @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true }) // <-- CORRECCIÓN AQUÍ
+  @PrimaryGeneratedColumn() // <-- CAMBIO: Quitado "type: 'bigint'" y "unsigned"
   id: number;
 
   @Column({ type: 'varchar', length: 100, unique: true, nullable: false })

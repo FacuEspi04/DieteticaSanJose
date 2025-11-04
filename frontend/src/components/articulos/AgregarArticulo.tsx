@@ -8,6 +8,7 @@ import {
   Col,
   InputGroup,
   Spinner,
+  Modal, // <-- AÑADIDO: Importar Modal
 } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, UpcScan } from 'react-bootstrap-icons';
@@ -15,100 +16,120 @@ import logo from '../../assets/dietSanJose.png';
 import {
   createArticulo,
   getCategorias,
+  getMarcas, // <-- AÑADIDO
+  createMarca, // <-- AÑADIDO
   type Categoria,
+  type Marca, // <-- AÑADIDO
   type CreateArticuloDto,
 } from '../../services/apiService';
 
 // Interfaz para el estado del formulario
 interface ArticuloForm {
   nombre: string;
-  marca: string; // <-- AÑADIDO
+  marcaId: string; // <-- CAMBIADO: de 'marca' a 'marcaId'
   codigoBarras: string;
   precio: string;
   stock: string;
   stockMinimo: string;
   categoriaId: string;
-  // descripcion: string; // <-- ELIMINADO
 }
 
 const AgregarArticulo: React.FC = () => {
   const navigate = useNavigate();
   const [exito, setExito] = useState(false);
   const [error, setError] = useState('');
+  
+  // Estados para los desplegables
   const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [isLoadingCategorias, setIsLoadingCategorias] = useState(true);
+  const [marcas, setMarcas] = useState<Marca[]>([]); // <-- AÑADIDO
+  const [isLoading, setIsLoading] = useState(true); // Un solo estado de carga
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Estados para el Modal de Nueva Marca
+  const [showMarcaModal, setShowMarcaModal] = useState(false);
+  const [newMarcaName, setNewMarcaName] = useState("");
+  const [errorMarca, setErrorMarca] = useState(""); // Error específico del modal
 
   const [formData, setFormData] = useState<ArticuloForm>({
     nombre: '',
-    marca: '', // <-- AÑADIDO
+    marcaId: '', // <-- CAMBIADO
     codigoBarras: '',
     precio: '',
     stock: '',
     stockMinimo: '',
     categoriaId: '',
-    // descripcion: '', // <-- ELIMINADO
   });
 
-  // Generar código de barras y cargar categorías al montar
+  // Cargar categorías y MARCAS al montar
   useEffect(() => {
     generarCodigoBarras();
 
-    // Cargar categorías desde la API
-    setIsLoadingCategorias(true);
-    getCategorias()
-      .then(setCategorias)
-      .catch((err) => {
-        console.error('Error al cargar categorías:', err);
-        setError('No se pudieron cargar las categorías. Intente más tarde.');
-      })
-      .finally(() => setIsLoadingCategorias(false));
+    const cargarDatos = async () => {
+      setIsLoading(true);
+      try {
+        // Pedimos ambas cosas en paralelo
+        const [categoriasData, marcasData] = await Promise.all([
+          getCategorias(),
+          getMarcas() // <-- AÑADIDO
+        ]);
+        setCategorias(categoriasData);
+        setMarcas(marcasData); // <-- AÑADIDO
+        setError(""); // Limpiar errores si todo carga bien
+      } catch (err: any) {
+        console.error('Error al cargar datos:', err);
+        setError('No se pudieron cargar las categorías o marcas. Intente más tarde.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    cargarDatos();
   }, []);
 
-  // Generar código de barras EAN-13 (formato argentino)
+  // Generar código de barras (sin cambios)
   const generarCodigoBarras = () => {
-    // Prefijo 779 para Argentina + 10 dígitos aleatorios
     const prefijo = '779';
     let codigo = prefijo;
-
-    // Generar 9 dígitos aleatorios
     for (let i = 0; i < 9; i++) {
       codigo += Math.floor(Math.random() * 10);
     }
-
-    // Calcular dígito verificador
     const digitoVerificador = calcularDigitoVerificador(codigo);
     codigo += digitoVerificador;
-
     setFormData((prev) => ({
       ...prev,
       codigoBarras: codigo,
     }));
   };
 
-  // Calcular dígito verificador para EAN-13
+  // Calcular dígito verificador (sin cambios)
   const calcularDigitoVerificador = (codigo: string): number => {
     let suma = 0;
     for (let i = 0; i < codigo.length; i++) {
       const digito = parseInt(codigo[i]);
-      // Los dígitos en posiciones impares (índice par) se multiplican por 1
-      // Los dígitos en posiciones pares (índice impar) se multiplican por 3
       suma += i % 2 === 0 ? digito : digito * 3;
     }
     const modulo = suma % 10;
     return modulo === 0 ? 0 : 10 - modulo;
   };
 
+  // --- MODIFICADO ---
+  // Manejador de cambios para abrir el modal si se selecciona "Nueva Marca"
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >,
   ) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    
+    if (name === 'marcaId' && value === 'NUEVA_MARCA') {
+      setShowMarcaModal(true); // Abre el modal
+      // No actualizamos el formData, esperamos a que se cree la marca
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
   };
 
   const validarFormulario = (): boolean => {
@@ -132,8 +153,45 @@ const AgregarArticulo: React.FC = () => {
       setError('Debes seleccionar una categoría');
       return false;
     }
-    // No es necesario validar 'marca' si es opcional
+    // --- AÑADIDO ---
+    if (!formData.marcaId || formData.marcaId === 'NUEVA_MARCA') {
+      setError('Debes seleccionar una marca');
+      return false;
+    }
     return true;
+  };
+
+  // --- AÑADIDO ---
+  // Manejador para crear la nueva marca desde el modal
+  const handleCrearMarca = async () => {
+    if (!newMarcaName.trim()) {
+      setErrorMarca("El nombre de la marca no puede estar vacío.");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    setErrorMarca("");
+    
+    try {
+      // 1. Llamar a la API para crear la marca
+      const nuevaMarca = await createMarca({ nombre: newMarcaName.trim() });
+      
+      // 2. Añadir la nueva marca a la lista del desplegable
+      setMarcas([...marcas, nuevaMarca]);
+      
+      // 3. Seleccionar automáticamente la marca recién creada
+      setFormData(prev => ({ ...prev, marcaId: String(nuevaMarca.id) }));
+      
+      // 4. Cerrar el modal y limpiar
+      setShowMarcaModal(false);
+      setNewMarcaName("");
+      
+    } catch (err: any) {
+      console.error("Error al crear marca:", err);
+      setErrorMarca(err.message || "Error al guardar la marca.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -150,25 +208,18 @@ const AgregarArticulo: React.FC = () => {
     // Preparar artículo para la API (coincide con el DTO)
     const nuevoArticulo: CreateArticuloDto = {
       nombre: formData.nombre.trim(),
-      marca: formData.marca.trim() || undefined, // <-- AÑADIDO (undefined si está vacío)
+      // --- MODIFICADO ---
+      marcaId: parseInt(formData.marcaId, 10), 
       codigo_barras: formData.codigoBarras,
       precio: parseFloat(formData.precio),
       stock: parseInt(formData.stock, 10),
       stock_minimo: parseInt(formData.stockMinimo, 10),
       categoriaId: parseInt(formData.categoriaId, 10),
-      // descripcion: formData.descripcion.trim(), // <-- ELIMINADO
     };
 
     try {
-      // Usar el servicio de la API en lugar de localStorage
       await createArticulo(nuevoArticulo);
-
-      console.log('Artículo guardado:', nuevoArticulo);
-
-      // Mostrar mensaje de éxito
       setExito(true);
-
-      // Redirigir después de 2 segundos
       setTimeout(() => {
         navigate('/articulos');
       }, 2000);
@@ -186,7 +237,7 @@ const AgregarArticulo: React.FC = () => {
 
   return (
     <div>
-      {/* Logo en la esquina superior derecha */}
+      {/* ... Logo (sin cambios) ... */}
       <div className="d-flex justify-content-end mb-3">
         <img
           src={logo}
@@ -198,6 +249,7 @@ const AgregarArticulo: React.FC = () => {
       <div className="mt-4">
         <Card className="shadow-sm">
           <Card.Header className="d-flex align-items-center">
+            {/* ... Botón de volver (sin cambios) ... */}
             <Button
               variant="link"
               onClick={handleCancelar}
@@ -209,7 +261,7 @@ const AgregarArticulo: React.FC = () => {
             <h5 className="mb-0">Agregar Nuevo Artículo</h5>
           </Card.Header>
           <Card.Body>
-            {/* Mensajes de error y éxito */}
+            {/* ... Alertas (sin cambios) ... */}
             {error && (
               <Alert variant="danger" dismissible onClose={() => setError('')}>
                 {error}
@@ -222,9 +274,9 @@ const AgregarArticulo: React.FC = () => {
               </Alert>
             )}
 
-            {/* Formulario */}
             <Form onSubmit={handleSubmit}>
               <Row>
+                {/* ... Nombre (sin cambios) ... */}
                 <Col md={8}>
                   <Form.Group className="mb-3">
                     <Form.Label>
@@ -241,6 +293,7 @@ const AgregarArticulo: React.FC = () => {
                   </Form.Group>
                 </Col>
 
+                {/* ... Código de Barras (sin cambios) ... */}
                 <Col md={4}>
                   <Form.Group className="mb-3">
                     <Form.Label>
@@ -274,6 +327,7 @@ const AgregarArticulo: React.FC = () => {
               </Row>
 
               <Row>
+                {/* ... Precio, Stock, Stock Mínimo (sin cambios) ... */}
                 <Col md={4}>
                   <Form.Group className="mb-3">
                     <Form.Label>
@@ -294,7 +348,6 @@ const AgregarArticulo: React.FC = () => {
                     </InputGroup>
                   </Form.Group>
                 </Col>
-
                 <Col md={4}>
                   <Form.Group className="mb-3">
                     <Form.Label>
@@ -311,7 +364,6 @@ const AgregarArticulo: React.FC = () => {
                     />
                   </Form.Group>
                 </Col>
-
                 <Col md={4}>
                   <Form.Group className="mb-3">
                     <Form.Label>
@@ -341,11 +393,11 @@ const AgregarArticulo: React.FC = () => {
                       value={formData.categoriaId}
                       onChange={handleChange}
                       required
-                      disabled={isLoadingCategorias}
+                      disabled={isLoading}
                     >
                       <option value="">
-                        {isLoadingCategorias
-                          ? 'Cargando categorías...'
+                        {isLoading
+                          ? 'Cargando...'
                           : 'Selecciona una categoría'}
                       </option>
                       {categorias.map((cat) => (
@@ -357,29 +409,43 @@ const AgregarArticulo: React.FC = () => {
                   </Form.Group>
                 </Col>
                 
-                {/* --- CAMBIO --- */}
+                {/* --- CAMBIO: Campo de Marca a Select --- */}
                 <Col md={6}>
                   <Form.Group className="mb-3">
-                    <Form.Label>Marca</Form.Label>
-                    <Form.Control
-                      type="text"
-                      name="marca"
-                      value={formData.marca}
+                    <Form.Label>
+                      Marca <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Select
+                      name="marcaId"
+                      value={formData.marcaId}
                       onChange={handleChange}
-                      placeholder="Ej: Granix, Stevia, etc."
-                    />
+                      required
+                      disabled={isLoading}
+                    >
+                      <option value="">
+                        {isLoading
+                          ? 'Cargando...'
+                          : 'Selecciona una marca'}
+                      </option>
+                      {marcas.map((marca) => (
+                        <option key={marca.id} value={marca.id}>
+                          {marca.nombre}
+                        </option>
+                      ))}
+                      {/* Opción para agregar nueva marca */}
+                      <option value="NUEVA_MARCA" style={{ fontStyle: 'italic', color: 'blue' }}>
+                        -- Agregar Nueva Marca --
+                      </option>
+                    </Form.Select>
                   </Form.Group>
                 </Col>
               </Row>
 
-              {/* --- CAMBIO: Eliminada la fila de Descripción --- */}
-
+              {/* ... (Texto obligatorio y botones sin cambios) ... */}
               <Form.Text className="text-muted d-block mb-3">
                 Los campos marcados con <span className="text-danger">*</span> son
                 obligatorios
               </Form.Text>
-
-              {/* Botones de acción */}
               <div className="d-flex justify-content-end gap-2">
                 <Button
                   variant="secondary"
@@ -391,14 +457,8 @@ const AgregarArticulo: React.FC = () => {
                 <Button variant="success" type="submit" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
-                      <Spinner
-                        as="span"
-                        animation="border"
-                        size="sm"
-                        role="status"
-                        aria-hidden="true"
-                      />{' '}
-                      Guardando...
+                      <Spinner as="span" animation="border" size="sm" />
+                      {' '}Guardando...
                     </>
                   ) : (
                     'Guardar Artículo'
@@ -409,6 +469,45 @@ const AgregarArticulo: React.FC = () => {
           </Card.Body>
         </Card>
       </div>
+
+      {/* --- AÑADIDO: Modal para crear nueva marca --- */}
+      <Modal show={showMarcaModal} onHide={() => setShowMarcaModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Crear Nueva Marca</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {errorMarca && (
+            <Alert variant="danger">
+              {errorMarca}
+            </Alert>
+          )}
+          <Form.Group>
+            <Form.Label>Nombre de la nueva marca</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="Ej: Yin Yang"
+              value={newMarcaName}
+              onChange={(e) => setNewMarcaName(e.target.value)}
+              autoFocus
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowMarcaModal(false)} disabled={isSubmitting}>
+            Cancelar
+          </Button>
+          <Button variant="primary" onClick={handleCrearMarca} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Spinner as="span" animation="border" size="sm" />
+                {' '}Creando...
+              </>
+            ) : (
+              'Crear y Seleccionar'
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

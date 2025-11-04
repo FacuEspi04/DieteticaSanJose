@@ -13,17 +13,17 @@ import { Proveedor } from 'src/proveedores/proveedores.entity';
 
 @Entity({ name: 'pedidos' })
 export class Pedido {
-  @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
+  @PrimaryGeneratedColumn() // <-- CAMBIO: Quitado "type: 'bigint'"
   id: number;
 
-  @Column({ name: 'proveedor_id', type: 'bigint', unsigned: true })
+  @Column({ name: 'proveedor_id', type: 'integer' }) // <-- CAMBIO: 'bigint' a 'integer'
   proveedorId: number;
 
   @Column({ name: 'fecha_pedido', type: 'date' })
   fechaPedido: Date;
 
   @Column({
-    type: 'enum',
+    type: 'varchar', // <-- LÍNEA AÑADIDA
     enum: ['Pendiente', 'En_Transito', 'Recibido', 'Cancelado'],
     default: 'Pendiente',
   })
@@ -35,7 +35,7 @@ export class Pedido {
   @Column({ type: 'text', nullable: true })
   notas: string | null;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime' })
+  @CreateDateColumn({ name: 'created_at' }) // <-- 'type: datetime' eliminado
   createdAt: Date;
 
   @ManyToOne(() => Proveedor, (p) => p.pedidos, { eager: true }) // eager carga el proveedor
@@ -44,7 +44,8 @@ export class Pedido {
 
   @OneToMany(() => PedidoDetalle, (detalle) => detalle.pedido, {
     cascade: true, // Guarda detalles automáticamente
-    eager: true,   // Carga detalles automáticamente
+    eager: true, // Carga detalles automáticamente
   })
   items: PedidoDetalle[];
 }
+

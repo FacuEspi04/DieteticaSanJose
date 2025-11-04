@@ -5,24 +5,20 @@ import {
   Min,
   IsOptional,
   IsInt,
-  MaxLength,
 } from 'class-validator';
 
 export class CreateArticuloDto {
   @IsString()
   @IsNotEmpty()
-  @MaxLength(255)
   nombre: string;
 
   // --- CAMBIO ---
-  @IsString()
   @IsOptional()
-  @MaxLength(100)
-  marca?: string; // <-- AÑADIDO
+  @IsInt()
+  marcaId?: number; // <-- AÑADIDO: Ahora es un ID
 
   @IsString()
   @IsNotEmpty()
-  @MaxLength(50)
   codigo_barras: string;
 
   @IsNumber()
@@ -38,10 +34,8 @@ export class CreateArticuloDto {
   stock_minimo: number;
 
   @IsInt()
-  @IsNotEmpty()
   categoriaId: number;
 
-  // --- CAMBIO ---
-  // descripcion?: string; // <-- ELIMINADO
+  // 'descripcion' ya no existe
 }
 

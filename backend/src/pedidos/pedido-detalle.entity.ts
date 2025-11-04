@@ -5,13 +5,13 @@ import { Articulo } from 'src/articulos/articulo.entity';
 
 @Entity({ name: 'pedido_detalles' })
 export class PedidoDetalle {
-  @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
+  @PrimaryGeneratedColumn() // <-- CAMBIO: Quitado "type: 'bigint'" y "unsigned"
   id: number;
 
-  @Column({ name: 'pedido_id', type: 'bigint', unsigned: true })
+  @Column({ name: 'pedido_id', type: 'integer' }) // <-- CAMBIO: 'bigint' a 'integer' y quitado "unsigned"
   pedidoId: number;
 
-  @Column({ name: 'articulo_id', type: 'bigint', unsigned: true })
+  @Column({ name: 'articulo_id', type: 'integer' }) // <-- CAMBIO: 'bigint' a 'integer' y quitado "unsigned"
   articuloId: number;
 
   @Column()

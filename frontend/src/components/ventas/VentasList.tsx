@@ -47,10 +47,17 @@ const VentasList: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null);
-
+  // FUNCIÓN CORREGIDA PARA MANEJAR ZONA HORARIA ---
+  const getTodayString = () => {
+  const hoy = new Date();
+  const year = hoy.getFullYear();
+  const month = String(hoy.getMonth() + 1).padStart(2, '0');
+  const day = String(hoy.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
   useEffect(() => {
-    const hoy = new Date().toISOString().split('T')[0];
-    setFechaSeleccionada(hoy);
+    // const hoy = new Date().toISOString().split('T')[0]; // <-- ESTO CAUSA EL BUG DE ZONA HORARIA
+    setFechaSeleccionada(getTodayString()); // <-- CORREGIDO
   }, []);
 
   useEffect(() => {
@@ -161,20 +168,41 @@ const VentasList: React.FC = () => {
 
 
   // Funciones de formato (sin cambios)
-  const formatearFecha = (fechaISO: string | Date): string => {
-    const fecha = new Date(fechaISO);
-    const day = String(fecha.getDate()).padStart(2, '0');
-    const month = String(fecha.getMonth() + 1).padStart(2, '0'); // Month es 0-indexed
-    const year = fecha.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
-  const formatearHora = (fechaISO: string | Date): string => {
-     const fecha = new Date(fechaISO);
-     return fecha.toLocaleTimeString("es-AR", {
-     hour: "2-digit",
-     minute: "2-digit",
-   });
+  // FUNCIÓN CORREGIDA que parsea fechas ISO como locales
+const formatearFecha = (fechaISO: string | Date): string => {
+  let fecha: Date;
+  
+  if (typeof fechaISO === 'string') {
+    // Si es string en formato "YYYY-MM-DD", parsearlo como fecha local
+    const [year, month, day] = fechaISO.split('-').map(Number);
+    fecha = new Date(year, month - 1, day); // Month es 0-indexed
+  } else {
+    fecha = fechaISO;
   }
+  
+  const day = String(fecha.getDate()).padStart(2, '0');
+  const month = String(fecha.getMonth() + 1).padStart(2, '0');
+  const year = fecha.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+// Para formatearHora, si también recibes strings ISO sin hora:
+const formatearHora = (fechaISO: string | Date): string => {
+  let fecha: Date;
+  
+  if (typeof fechaISO === 'string' && !fechaISO.includes('T')) {
+    // Si es solo fecha sin hora, parsearlo como local
+    const [year, month, day] = fechaISO.split('-').map(Number);
+    fecha = new Date(year, month - 1, day);
+  } else {
+    fecha = new Date(fechaISO);
+  }
+  
+  return fecha.toLocaleTimeString("es-AR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
   // Funciones de eliminación (sin cambios)
   const abrirModalEliminar = (venta: Venta) => {

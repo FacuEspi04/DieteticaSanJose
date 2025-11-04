@@ -7,7 +7,7 @@ import {
 
 @Entity({ name: 'clientes' })
 export class Cliente {
-  @PrimaryGeneratedColumn({ type: 'bigint', unsigned: true })
+  @PrimaryGeneratedColumn() // <-- CAMBIO: Quitado "type: 'bigint'" y "unsigned"
   id: number;
 
   @Column({ type: 'varchar', length: 255 })
@@ -31,6 +31,7 @@ export class Cliente {
   })
   limiteCredito: number;
 
-  @CreateDateColumn({ name: 'created_at', type: 'datetime' })
+  @CreateDateColumn({ name: 'created_at' }) // <-- CAMBIO: Quitado "type: 'datetime'"
   createdAt: Date;
 }
+
