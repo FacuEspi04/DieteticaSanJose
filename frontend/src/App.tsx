@@ -15,6 +15,7 @@ import CrearPedido from './components/proveedores/CrearPedido';
 import ListaPedidos from './components/proveedores/ListaPedidos';
 import logo from './assets/dietSanJose.png';
 import RegistrarRetiro from './components/caja/RegistrarRetiro';
+import EditarProveedor from './components/proveedores/EditarProveedor';
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
           <Route path="proveedores/nuevo" element={<AgregarProveedor />} />
           <Route path="proveedores/pedidos/nuevo" element={<CrearPedido />} />
           <Route path="proveedores/pedidos/lista" element={<ListaPedidos />} />
+          <Route path="proveedores/editar/:id" element={<EditarProveedor />} />
 
           {/* Rutas de ventas */}
           <Route path="ventas" element={<VentasList />} />

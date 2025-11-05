@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, IsEmail, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEmail,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 
 export class CreateProveedorDto {
   @IsString()
@@ -7,19 +14,21 @@ export class CreateProveedorDto {
   nombre: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'El nombre del contacto es obligatorio' })
+  @IsOptional() // <-- CAMBIADO: Es opcional
   @MaxLength(255)
-  contacto: string;
-  
+  contacto?: string | null; // <-- CAMBIADO: Acepta null
+
   @IsString()
-  @IsNotEmpty({ message: 'El teléfono es obligatorio' })
+  @IsOptional() // <-- CAMBIADO: Es opcional
   @MaxLength(50)
-  telefono: string;
+  telefono?: string | null; // <-- CAMBIADO: Acepta null
 
   @IsEmail({}, { message: 'El formato del email no es válido' })
-  @IsNotEmpty({ message: 'El email es obligatorio' })
+  @IsOptional() // <-- CAMBIADO: Es opcional
+  // Validar solo si no es nulo y no es un string vacío
+  @ValidateIf((o) => o.email !== null && o.email !== '')
   @MaxLength(255)
-  email: string;
+  email?: string | null; // <-- CAMBIADO: Acepta null
 
   @IsString()
   @IsOptional()

@@ -31,6 +31,22 @@ export class ProveedoresService {
     return proveedor;
   }
 
+async update(
+    id: number,
+    updateProveedorDto: CreateProveedorDto,
+  ): Promise<Proveedor> {
+    // findOne ya maneja la excepcióin Not Found
+    const proveedor = await this.findOne(id);
+
+    // Mezcla los datos del DTO con la entidad existente
+    // Esto actualiza solo los campos que vienen en el DTO
+    this.proveedorRepository.merge(proveedor, updateProveedorDto);
+
+    // Guarda la entidad actualizada
+    return this.proveedorRepository.save(proveedor);
+  }
+  // --- FIN DE AÑADIDO ---
+
   async remove(id: number): Promise<{ message: string }> {
     const proveedor = await this.findOne(id); // findOne ya maneja el 404
 

@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Table, Card, Button, Alert, Spinner, Modal } from "react-bootstrap"; // <-- Añadido Modal
-import { PlusCircle, Trash } from "react-bootstrap-icons"; // <-- Añadido Trash
+import { Table, Card, Button, Alert, Spinner, Modal } from "react-bootstrap";
+// Imports actualizados de iconos
+import { PlusCircle, Trash, PencilSquare } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 import logo from "../../assets/dietSanJose.png";
-import { getProveedores, deleteProveedor, type Proveedor } from "../../services/apiService"; // <-- Añadido deleteProveedor
+import {
+  getProveedores,
+  deleteProveedor,
+  type Proveedor,
+} from "../../services/apiService";
 
 const ProveedoresList: React.FC = () => {
   const navigate = useNavigate();
@@ -12,14 +17,13 @@ const ProveedoresList: React.FC = () => {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [exito, setExito] = useState<string | null>(null); // <-- Añadido para feedback
+  const [exito, setExito] = useState<string | null>(null);
 
-  // --- NUEVOS ESTADOS PARA EL MODAL DE ELIMINACIÓN ---
+  // Estados para el modal de eliminación
   const [showModal, setShowModal] = useState(false);
   const [proveedorAEliminar, setProveedorAEliminar] =
     useState<Proveedor | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  // ---
 
   // Cargar proveedores desde la API
   useEffect(() => {
@@ -29,7 +33,7 @@ const ProveedoresList: React.FC = () => {
   const cargarProveedores = async () => {
     setIsLoading(true);
     setError(null);
-    setExito(null); // Limpiar éxito
+    setExito(null);
     try {
       const data = await getProveedores();
       setProveedores(data);
@@ -40,13 +44,23 @@ const ProveedoresList: React.FC = () => {
     }
   };
 
-  // --- NUEVAS FUNCIONES PARA ELIMINAR ---
+  // --- NUEVA FUNCIÓN PARA EDITAR ---
+  /**
+   * Navega a la página de edición del proveedor.
+   * Asume que la ruta es /proveedores/editar/:id
+   */
+  const handleEditar = (id: number) => {
+    navigate(`/proveedores/editar/${id}`);
+  };
+  // --- FIN DE NUEVA FUNCIÓN ---
+
+  // --- Funciones para Eliminar (existentes) ---
 
   // Abre el modal de confirmación
   const abrirModalEliminar = (proveedor: Proveedor) => {
     setProveedorAEliminar(proveedor);
     setShowModal(true);
-    setError(null); // Limpiar error al abrir
+    setError(null);
   };
 
   // Cierra el modal
@@ -64,32 +78,30 @@ const ProveedoresList: React.FC = () => {
 
     try {
       await deleteProveedor(proveedorAEliminar.id);
-      
-      // Actualizar el estado local para quitar el proveedor
+
       setProveedores((prev) =>
         prev.filter((p) => p.id !== proveedorAEliminar.id),
       );
-      
-      setExito(`Proveedor "${proveedorAEliminar.nombre}" eliminado exitosamente.`);
+
+      setExito(
+        `Proveedor "${proveedorAEliminar.nombre}" eliminado exitosamente.`,
+      );
       setShowModal(false);
       setProveedorAEliminar(null);
-      
-      setTimeout(() => setExito(null), 3000); // Limpiar mensaje de éxito
 
+      setTimeout(() => setExito(null), 3000);
     } catch (apiError: any) {
       console.error("Error al eliminar proveedor:", apiError);
       setError(apiError.message || "No se pudo eliminar el proveedor.");
-      // Mantenemos el modal abierto para mostrar el error
     } finally {
       setIsDeleting(false);
     }
   };
-
-  // --- FIN DE NUEVAS FUNCIONES ---
+  // --- Fin de funciones de eliminación ---
 
   return (
     <div>
-      {/* Logo en la esquina superior derecha */}
+      {/* Logo */}
       <div className="d-flex justify-content-end mb-3">
         <img
           src={logo}
@@ -120,14 +132,14 @@ const ProveedoresList: React.FC = () => {
           </div>
         </Card.Header>
         <Card.Body>
-          {error && !isDeleting && ( // No mostrar error general si es un error del modal
+          {error && !isDeleting && (
             <Alert variant="danger" onClose={() => setError(null)} dismissible>
               {error}
             </Alert>
           )}
-          
+
           {exito && (
-             <Alert variant="success" onClose={() => setExito(null)} dismissible>
+            <Alert variant="success" onClose={() => setExito(null)} dismissible>
               {exito}
             </Alert>
           )}
@@ -146,7 +158,7 @@ const ProveedoresList: React.FC = () => {
                   <th>Contacto</th>
                   <th>Teléfono</th>
                   <th>Email</th>
-                  <th>Acciones</th> {/* <-- NUEVA COLUMNA */}
+                  <th>Acciones</th> {/* Columna existente */}
                 </tr>
               </thead>
               <tbody>
@@ -158,22 +170,38 @@ const ProveedoresList: React.FC = () => {
                       <td>{proveedor.contacto}</td>
                       <td>{proveedor.telefono}</td>
                       <td>{proveedor.email}</td>
-                      {/* --- CELDA DE ACCIÓN (Comentario eliminado) --- */}
+                      
+                      {/* --- CELDA DE ACCIONES ACTUALIZADA --- */}
                       <td className="text-center">
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          onClick={() => abrirModalEliminar(proveedor)}
-                          title="Eliminar proveedor"
-                        >
-                          <Trash />
-                        </Button>
+                        <div className="d-flex justify-content-center gap-2">
+                          {/* Botón Editar (NUEVO) */}
+                          <Button
+                            variant="outline-primary"
+                            size="sm"
+                            onClick={() => handleEditar(proveedor.id)}
+                            title="Editar proveedor"
+                          >
+                            <PencilSquare />
+                          </Button>
+
+                          {/* Botón Eliminar (Existente) */}
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => abrirModalEliminar(proveedor)}
+                            title="Eliminar proveedor"
+                          >
+                            <Trash />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="text-center"> {/* <-- ColSpan a 6 */}
+                    <td colSpan={6} className="text-center">
+                      {" "}
+                      {/* ColSpan sigue siendo 6 */}
                       No hay proveedores disponibles.
                     </td>
                   </tr>
@@ -184,7 +212,7 @@ const ProveedoresList: React.FC = () => {
         </Card.Body>
       </Card>
 
-      {/* --- NUEVO MODAL DE CONFIRMACIÓN --- */}
+      {/* --- Modal de Confirmación (Existente) --- */}
       <Modal show={showModal} onHide={cancelarEliminacion} centered>
         <Modal.Header
           closeButton
@@ -193,9 +221,7 @@ const ProveedoresList: React.FC = () => {
           <Modal.Title>Confirmar Eliminación</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {error && isDeleting && (
-            <Alert variant="danger">{error}</Alert>
-          )}
+          {error && isDeleting && <Alert variant="danger">{error}</Alert>}
           {proveedorAEliminar && (
             <>
               <p>¿Estás seguro de que deseas eliminar al proveedor?</p>
@@ -245,4 +271,3 @@ const ProveedoresList: React.FC = () => {
 };
 
 export default ProveedoresList;
-

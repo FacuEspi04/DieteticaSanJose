@@ -9,34 +9,34 @@ import {
 
 @Entity({ name: 'proveedores' })
 export class Proveedor {
-  @PrimaryGeneratedColumn() // <-- CAMBIO: Quitado "type: 'bigint'" y "unsigned"
+  @PrimaryGeneratedColumn()
   id: number;
 
   @Column({ type: 'varchar', length: 255 })
   nombre: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  contacto: string;
+  contacto: string | null; // <-- CORREGIDO
 
   @Column({ type: 'varchar', length: 50, nullable: true })
-  telefono: string;
+  telefono: string | null; // <-- CORREGIDO
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  email: string;
+  email: string | null; // <-- CORREGIDO
 
   @Column({ type: 'text', nullable: true })
-  direccion: string;
+  direccion: string | null; // <-- CORREGIDO
 
   @Column({ type: 'varchar', length: 20, unique: true, nullable: true })
-  cuit: string;
+  cuit: string | null; // <-- CORREGIDO
 
   @Column({ type: 'text', nullable: true })
-  notas: string;
+  notas: string | null; // <-- CORREGIDO
 
   @Column({ type: 'boolean', default: true })
   activo: boolean;
 
-  @CreateDateColumn({ name: 'created_at' }) // <-- CAMBIO: Quitado "type: 'datetime'"
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
   @OneToMany(() => Pedido, (pedido) => pedido.proveedor)

@@ -44,7 +44,7 @@ export interface CreateArticuloDto {
 
 // Para el formulario de edición (campos opcionales)
 export type UpdateArticuloDto = Partial<CreateArticuloDto>;
-
+export type UpdateProveedorDto = Partial<CreateProveedorDto>;
 // --- Tipos de Proveedores ---
 
 export interface Proveedor {
@@ -62,9 +62,9 @@ export interface Proveedor {
 
 export interface CreateProveedorDto {
   nombre: string;
-  contacto: string;
-  telefono: string;
-  email: string;
+  contacto: string | null;
+  telefono: string | null;
+  email: string | null;
   direccion?: string;
   cuit?: string;
   notas?: string;
@@ -291,6 +291,34 @@ export const createProveedor = async (
       throw new Error(error.message.join(', '));
     }
     throw new Error('Error al crear el proveedor');
+  }
+  return await response.json();
+};
+
+// --- AÑADIDO: updateProveedor ---
+export const updateProveedor = async (
+ id: number,
+ proveedorData: UpdateProveedorDto,
+): Promise<Proveedor> => {
+ const response = await fetch(`${API_URL}/proveedores/${id}`, {
+ method: 'PATCH',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify(proveedorData), 
+});
+ if (!response.ok) {
+ if (response.status === 400) {
+ 	  const error = await response.json();
+ 	  throw new Error(error.message.join(', '));
+ 	}
+ throw new Error('Error al actualizar el proveedor');
+ }
+ return await response.json();
+};
+
+export const getProveedorById = async (id: number): Promise<Proveedor> => {
+  const response = await fetch(`${API_URL}/proveedores/${id}`);
+  if (!response.ok) {
+    throw new Error(`Error al obtener el proveedor #${id}`);
   }
   return await response.json();
 };
