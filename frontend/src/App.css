@@ -11,7 +11,7 @@ body {
   font-family: 'Poppins', sans-serif;
 }
 
-/* Variables de colores */
+/* Variables de colores */ 
 :root {
   --main-color: #8f3d38;
   --hover-color: #cb7169;
@@ -48,9 +48,10 @@ body {
 }
 
 /* Enlaces del sidebar */
-.sidebar-link {
+.custom-navlink {
   color: white !important;
-  text-align: center;
+  /* text-align: center; <-- CAMBIAMOS ESTO */
+  text-align: center; /* <-- POR ESTO, para que se alinee con w-100 */
   transition: all 0.2s ease;
   text-decoration: none;
   padding: 0.5rem 1rem;
@@ -58,9 +59,11 @@ body {
   border-radius: 4px;
 }
 
-.sidebar-link:hover {
-  color: var(--hover-color) !important;
-  background-color: rgba(255, 255, 255, 0.1);
+/* Aplicamos los estilos de hover y activo */
+.custom-navlink:hover,
+.custom-navlink.active { /* <-- .active se agregará en el siguiente paso */
+  color: var(--dark-hover) !important;
+  background-color: rgba(255, 255, 255, 0.1) !important; /* <-- AÑADE !important AQUÍ */
 }
 
 /* Header/Navbar */
@@ -104,4 +107,20 @@ body {
 
 .main-content-normal {
   margin-left: 0;
+}
+
+/* Estilos para achicar el contenido del modal de pago */
+.modal-contenido-pequeno .modal-body,
+.modal-contenido-pequeno .modal-footer,
+.modal-contenido-pequeno .modal-title {
+  /* Reduce el tamaño de fuente base del modal (ajusta 0.9rem si lo quieres más chico) */
+  font-size: 1rem; 
+}
+
+/* Achicamos también los elementos de formulario, botones y alertas */
+.modal-contenido-pequeno .btn,
+.modal-contenido-pequeno .form-control,
+.modal-contenido-pequeno .form-select,
+.modal-contenido-pequeno .alert {
+  font-size: 1rem;
 }

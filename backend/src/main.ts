@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module'; 
 import { ValidationPipe } from '@nestjs/common';
+import { exec } from 'child_process';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -23,6 +24,18 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(3000);
+  await app.listen(3000, () => {
+    console.log('Servidor iniciado en http://localhost:3000');
+
+    // 4. Lógica de auto-apertura
+    const url = 'http://localhost:3000';
+    
+    // Comando para abrir el navegador según el sistema operativo
+    // 'pkg' se ejecuta en un .exe, por lo que 'process.platform' será 'win32'
+    if (process.platform === 'win32') {
+      // Usar 'start' en Windows
+      exec(`start ${url}`);
+    } 
+  });
 }
 bootstrap();

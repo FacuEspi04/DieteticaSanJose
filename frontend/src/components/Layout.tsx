@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Link, Outlet } from 'react-router-dom';
-import { Navbar, Nav, Button, Container, NavDropdown } from 'react-bootstrap';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Navbar, Nav, Button, Container, Dropdown } from 'react-bootstrap';
 import { List } from 'react-bootstrap-icons';
 
 interface LayoutProps {
@@ -9,6 +9,8 @@ interface LayoutProps {
   logo?: string;
   navLinks?: { name: string; path: string }[];
 }
+
+
 
 const Layout: React.FC<LayoutProps> = ({
   brand = 'Mi Empresa',
@@ -21,79 +23,136 @@ const Layout: React.FC<LayoutProps> = ({
   ],
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
+  const location = useLocation();
+  
+  // Helper function para verificar la ruta activa en Dropdown.Item
+  const isActive = (path: string) => {
+    return location.pathname === path;
+  };
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
   return (
     <div className="layout-container">
       {/* Sidebar */}
       <div className={`sidebar ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-        <Nav className="flex-column">
-          {navLinks.map((link, index) => {
-            if (link.name === 'Ventas') {
-              return (
-                <NavDropdown 
-                  title={<span style={{ color: 'white' }}>Ventas</span>} 
-                  id="ventas-dropdown" 
-                  key={index} 
-                  className="sidebar-link"
-                  menuVariant="white"
-                  style={{ color: 'white' }}
-                >
-                  <NavDropdown.Item as={Link} to="/ventas" onClick={() => setSidebarOpen(false)}>
-                    Resumen de Caja
-                  </NavDropdown.Item>
-                  <NavDropdown.Item as={Link} to="/ventas/cuentas-corrientes" onClick={() => setSidebarOpen(false)}>
-                    Cuentas Corrientes
-                  </NavDropdown.Item>
-                  <NavDropdown.Item as={Link} to="/ventas/nueva" onClick={() => setSidebarOpen(false)}>
-                    Nueva Venta
-                  </NavDropdown.Item>
-                  
-                  {/* --- MODIFICACIÓN AQUÍ --- */}
-                  <NavDropdown.Divider />
-                  <NavDropdown.Item 
-                    as={Link} 
-                    to="/ventas/nuevo-retiro" // La ruta que definimos
-                    onClick={() => setSidebarOpen(false)}
-                    className="text-danger" // Opcional: para que resalte
-                  >
-                    Registrar Retiro
-                  </NavDropdown.Item>
-                  {/* --- FIN DE LA MODIFICACIÓN --- */}
-                  
-                </NavDropdown>
-              );
-            }
-            if (link.name === 'Proveedores') {
-              return (
-                <NavDropdown title={<span style={{ color: 'white' }}>Proveedores</span>} id="proveedores-dropdown" key={index} className="sidebar-link" menuVariant="white" style={{ color: 'white' }}>
-                  <NavDropdown.Item as={Link} to="/proveedores/pedidos/nuevo" onClick={() => setSidebarOpen(false)}>
-                    Nuevo Pedido
-                  </NavDropdown.Item>
-                  <NavDropdown.Item as={Link} to="/proveedores/pedidos/lista" onClick={() => setSidebarOpen(false)}>
-                    Lista de Pedidos
-                  </NavDropdown.Item>
-                  <NavDropdown.Item as={Link} to="/proveedores" onClick={() => setSidebarOpen(false)}>
-                    Lista de Proveedores
-                  </NavDropdown.Item>
-                </NavDropdown>
-              );
-            }
-            return (
-              <Nav.Link
-                as={Link}
-                key={index}
-                to={link.path}
-                className="sidebar-link"
-                onClick={() => setSidebarOpen(false)}
+    <Nav className="flex-column">
+      {navLinks.map((link, index) => {
+        
+        // --- Refactorizado: 'Ventas' usa Dropdown ---
+        if (link.name === 'Ventas') {
+          return (
+            <Dropdown className="mb-1" key={index}>
+              <Dropdown.Toggle
+                variant="link"
+                // Clases del ejemplo para que parezca un NavLink
+                className="nav-link p-2 rounded mb-1 custom-navlink w-100"
               >
-                {link.name}
-              </Nav.Link>
-            );
-          })}
-        </Nav>
-      </div>
+                Ventas
+              </Dropdown.Toggle>
+
+              <Dropdown.Menu>
+                <Dropdown.Item
+                  as={Link}
+                  to="/ventas"
+                  // Clase activa del ejemplo
+                  className={isActive("/ventas") ? "bg-secondary" : ""}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  Resumen de Caja
+                </Dropdown.Item>
+                <Dropdown.Item
+                  as={Link}
+                  to="/ventas/cuentas-corrientes"
+                  className={isActive("/ventas/cuentas-corrientes") ? "bg-secondary" : ""}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  Cuentas Corrientes
+                </Dropdown.Item>
+                <Dropdown.Item
+                  as={Link}
+                  to="/ventas/nueva"
+                  className={isActive("/ventas/nueva") ? "bg-secondary" : ""}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  Nueva Venta
+                </Dropdown.Item>
+                
+                <Dropdown.Divider />
+                
+                <Dropdown.Item
+                  as={Link}
+                  to="/ventas/nuevo-retiro"
+                  // Combina la clase activa y la clase de peligro
+                  className={`${isActive("/ventas/nuevo-retiro") ? "bg-secondary" : ""} text-danger`}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  Registrar Retiro
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown>
+          );
+        }
+
+        // --- Refactorizado: 'Proveedores' usa Dropdown ---
+        if (link.name === 'Proveedores') {
+          return (
+            <Dropdown className="mb-1" key={index}>
+              <Dropdown.Toggle
+                variant="link"
+                className="nav-link p-2 rounded mb-1 custom-navlink w-100"
+              >
+                Proveedores
+              </Dropdown.Toggle>
+
+              <Dropdown.Menu>
+                <Dropdown.Item
+                  as={Link}
+                  to="/proveedores/pedidos/nuevo"
+                  className={isActive("/proveedores/pedidos/nuevo") ? "bg-secondary" : ""}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  Nuevo Pedido
+                </Dropdown.Item>
+                <Dropdown.Item
+                  as={Link}
+                  to="/proveedores/pedidos/lista"
+                  className={isActive("/proveedores/pedidos/lista") ? "bg-secondary" : ""}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  Lista de Pedidos
+                </Dropdown.Item>
+                <Dropdown.Item
+                  as={Link}
+                  to="/proveedores"
+                  className={isActive("/proveedores") ? "bg-secondary" : ""}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  Lista de Proveedores
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown>
+          );
+        }
+
+        // --- Refactorizado: Enlaces normales usan NavLink ---
+        return (
+          <NavLink
+            key={index}
+            to={link.path}
+            // Lógica de clase activa de tu ejemplo
+            className={({ isActive }) =>
+              `nav-link p-2 rounded mb-1 custom-navlink ${
+                isActive ? "bg-secondary" : ""
+              }`
+            }
+            onClick={() => setSidebarOpen(false)}
+          >
+            {link.name}
+          </NavLink>
+        );
+      })}
+    </Nav>
+  </div>
 
       {/* Header fijo */}
       <Navbar variant="dark" expand="lg" className="main-navbar">

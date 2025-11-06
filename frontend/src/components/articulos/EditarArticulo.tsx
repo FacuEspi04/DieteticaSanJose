@@ -8,28 +8,28 @@ import {
   Col,
   InputGroup,
   Spinner,
-  Modal, // <-- AÑADIDO
+  Modal, // Importar Modal
 } from 'react-bootstrap';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle } from 'react-bootstrap-icons';
 import logo from '../../assets/dietSanJose.png';
-// --- MODIFICADO: Importar tipos y funciones de Marca ---
+// --- MODIFICADO: Importar tipos y funciones de Categoria y Marca ---
 import {
   type Categoria,
-  type Marca, // <-- AÑADIDO
+  type Marca,
   getArticuloById,
   getCategorias,
-  getMarcas, // <-- AÑADIDO
-  createMarca, // <-- AÑADIDO
+  getMarcas,
+  createMarca,
+  createCategoria, // <-- AÑADIDO
   type UpdateArticuloDto,
   updateArticulo,
 } from '../../services/apiService';
 
-
 // Interfaz para el estado del formulario
 interface ArticuloForm {
   nombre: string;
-  marcaId: string; // <-- CAMBIADO
+  marcaId: string;
   codigoBarras: string;
   precio: string;
   stock: string;
@@ -45,18 +45,23 @@ const EditarArticulo: React.FC = () => {
   const [exito, setExito] = useState(false);
   const [error, setError] = useState('');
   const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [marcas, setMarcas] = useState<Marca[]>([]); // <-- AÑADIDO
+  const [marcas, setMarcas] = useState<Marca[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // --- AÑADIDO: Estado para el modal de Nueva Marca ---
+  // Estado para el modal de Nueva Marca
   const [showMarcaModal, setShowMarcaModal] = useState(false);
-  const [newMarcaName, setNewMarcaName] = useState("");
-  const [errorMarca, setErrorMarca] = useState("");
+  const [newMarcaName, setNewMarcaName] = useState('');
+  const [errorMarca, setErrorMarca] = useState('');
+
+  // --- AÑADIDO: Estado para el modal de Nueva Categoria ---
+  const [showCategoriaModal, setShowCategoriaModal] = useState(false);
+  const [newCategoriaName, setNewCategoriaName] = useState('');
+  const [errorCategoria, setErrorCategoria] = useState('');
 
   const [formData, setFormData] = useState<ArticuloForm>({
     nombre: '',
-    marcaId: '', // <-- CAMBIADO
+    marcaId: '',
     codigoBarras: '',
     precio: '',
     stock: '',
@@ -79,23 +84,21 @@ const EditarArticulo: React.FC = () => {
         const [articuloData, categoriasData, marcasData] = await Promise.all([
           getArticuloById(articuloId),
           getCategorias(),
-          getMarcas(), // <-- AÑADIDO
+          getMarcas(),
         ]);
 
         // Llenamos el formulario con los datos del artículo
         setFormData({
           nombre: articuloData.nombre,
-          // --- CAMBIADO: Asignar marcaId (puede ser null) ---
-          marcaId: String(articuloData.marca?.id || ''), 
+          marcaId: String(articuloData.marca?.id || ''),
           codigoBarras: articuloData.codigo_barras,
           precio: String(articuloData.precio),
           stock: String(articuloData.stock),
           stockMinimo: String(articuloData.stock_minimo),
-          // --- CAMBIADO: Más seguro por si categoria es null ---
           categoriaId: String(articuloData.categoria?.id || ''),
         });
         setCategorias(categoriasData);
-        setMarcas(marcasData); // <-- AÑADIDO
+        setMarcas(marcasData);
       } catch (err: any) {
         console.error('Error al cargar datos:', err);
         setError(err.message || 'No se pudieron cargar los datos.');
@@ -107,19 +110,23 @@ const EditarArticulo: React.FC = () => {
     cargarDatos();
   }, [articuloId]);
 
-  // --- MODIFICADO: Manejador de cambios para el modal ---
+  // --- MODIFICADO: Manejador de cambios para ambos modales ---
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >,
   ) => {
     const { name, value } = e.target;
-    
-    // Si el usuario selecciona "Agregar Nueva Marca"
+
     if (name === 'marcaId' && value === 'NUEVA_MARCA') {
       setShowMarcaModal(true);
-      setErrorMarca("");
-      setNewMarcaName("");
+      setErrorMarca('');
+      setNewMarcaName('');
+    } else if (name === 'categoriaId' && value === 'NUEVA_CATEGORIA') {
+      // <-- AÑADIDO
+      setShowCategoriaModal(true);
+      setErrorCategoria('');
+      setNewCategoriaName('');
     } else {
       setFormData({
         ...formData,
@@ -145,11 +152,11 @@ const EditarArticulo: React.FC = () => {
       setError('El stock mínimo no puede ser negativo');
       return false;
     }
-    if (!formData.categoriaId) {
+    // --- MODIFICADO: Validar ambos campos ---
+    if (!formData.categoriaId || formData.categoriaId === 'NUEVA_CATEGORIA') {
       setError('Debes seleccionar una categoría');
       return false;
     }
-    // --- AÑADIDO: Validar marcaId ---
     if (!formData.marcaId || formData.marcaId === 'NUEVA_MARCA') {
       setError('Debes seleccionar una marca');
       return false;
@@ -157,26 +164,54 @@ const EditarArticulo: React.FC = () => {
     return true;
   };
 
-  // --- AÑADIDO: Manejador para crear la nueva marca ---
+  // Manejador para crear la nueva marca
   const handleCrearMarca = async () => {
     if (!newMarcaName.trim()) {
-      setErrorMarca("El nombre de la marca no puede estar vacío.");
+      setErrorMarca('El nombre de la marca no puede estar vacío.');
       return;
     }
-    
+
     setIsSubmitting(true);
-    setErrorMarca("");
-    
+    setErrorMarca('');
+
     try {
       const nuevaMarca = await createMarca({ nombre: newMarcaName.trim() });
       setMarcas([...marcas, nuevaMarca]);
-      setFormData(prev => ({ ...prev, marcaId: String(nuevaMarca.id) }));
+      setFormData((prev) => ({ ...prev, marcaId: String(nuevaMarca.id) }));
       setShowMarcaModal(false);
-      setNewMarcaName("");
-      
+      setNewMarcaName('');
     } catch (err: any) {
-      console.error("Error al crear marca:", err);
-      setErrorMarca(err.message || "Error al guardar la marca.");
+      console.error('Error al crear marca:', err);
+      setErrorMarca(err.message || 'Error al guardar la marca.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // --- AÑADIDO: Manejador para crear la nueva categoría ---
+  const handleCrearCategoria = async () => {
+    if (!newCategoriaName.trim()) {
+      setErrorCategoria('El nombre de la categoría no puede estar vacío.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorCategoria('');
+
+    try {
+      const nuevaCategoria = await createCategoria({
+        nombre: newCategoriaName.trim(),
+      });
+      setCategorias([...categorias, nuevaCategoria]);
+      setFormData((prev) => ({
+        ...prev,
+        categoriaId: String(nuevaCategoria.id),
+      }));
+      setShowCategoriaModal(false);
+      setNewCategoriaName('');
+    } catch (err: any) {
+      console.error('Error al crear categoría:', err);
+      setErrorCategoria(err.message || 'Error al guardar la categoría.');
     } finally {
       setIsSubmitting(false);
     }
@@ -196,7 +231,6 @@ const EditarArticulo: React.FC = () => {
     // Preparar DTO de actualización
     const articuloActualizado: UpdateArticuloDto = {
       nombre: formData.nombre.trim(),
-      // --- CAMBIADO: Enviar marcaId ---
       marcaId: parseInt(formData.marcaId, 10),
       precio: parseFloat(formData.precio),
       stock: parseInt(formData.stock, 10),
@@ -307,7 +341,7 @@ const EditarArticulo: React.FC = () => {
               </Row>
 
               <Row>
-                {/* ... Precio, Stock, Stock Mínimo (sin cambios) ... */}
+                {/* ... Precio, Stock, Stock Mínimo ... */}
                 <Col md={4}>
                   <Form.Group className="mb-3">
                     <Form.Label>
@@ -377,11 +411,18 @@ const EditarArticulo: React.FC = () => {
                           {cat.nombre}
                         </option>
                       ))}
+                      {/* --- AÑADIDO --- */}
+                      <option
+                        value="NUEVA_CATEGORIA"
+                        style={{ fontStyle: 'italic', color: 'blue' }}
+                      >
+                        -- Agregar Nueva Categoría --
+                      </option>
                     </Form.Select>
                   </Form.Group>
                 </Col>
-                
-                {/* --- CAMBIADO: Campo de Marca a Select --- */}
+
+                {/* --- Campo de Marca (sin cambios) --- */}
                 <Col md={6}>
                   <Form.Group className="mb-3">
                     <Form.Label>
@@ -399,7 +440,10 @@ const EditarArticulo: React.FC = () => {
                           {marca.nombre}
                         </option>
                       ))}
-                      <option value="NUEVA_MARCA" style={{ fontStyle: 'italic', color: 'blue' }}>
+                      <option
+                        value="NUEVA_MARCA"
+                        style={{ fontStyle: 'italic', color: 'blue' }}
+                      >
                         -- Agregar Nueva Marca --
                       </option>
                     </Form.Select>
@@ -407,7 +451,7 @@ const EditarArticulo: React.FC = () => {
                 </Col>
               </Row>
 
-              {/* ... Texto obligatorio y botones (sin cambios) ... */}
+              {/* ... Texto obligatorio y botones ... */}
               <Form.Text className="text-muted d-block mb-3">
                 Los campos marcados con <span className="text-danger">*</span> son
                 obligatorios
@@ -436,17 +480,17 @@ const EditarArticulo: React.FC = () => {
         </Card>
       </div>
 
-      {/* --- AÑADIDO: Modal para crear nueva marca --- */}
-      <Modal show={showMarcaModal} onHide={() => setShowMarcaModal(false)} centered>
+      {/* --- Modal para crear nueva marca (sin cambios) --- */}
+      <Modal
+        show={showMarcaModal}
+        onHide={() => setShowMarcaModal(false)}
+        centered
+      >
         <Modal.Header closeButton>
           <Modal.Title>Crear Nueva Marca</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {errorMarca && (
-            <Alert variant="danger">
-              {errorMarca}
-            </Alert>
-          )}
+          {errorMarca && <Alert variant="danger">{errorMarca}</Alert>}
           <Form.Group>
             <Form.Label>Nombre de la nueva marca</Form.Label>
             <Form.Control
@@ -459,10 +503,67 @@ const EditarArticulo: React.FC = () => {
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowMarcaModal(false)} disabled={isSubmitting}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowMarcaModal(false)}
+            disabled={isSubmitting}
+          >
             Cancelar
           </Button>
-          <Button variant="primary" onClick={handleCrearMarca} disabled={isSubmitting}>
+          <Button
+            variant="primary"
+            onClick={handleCrearMarca}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Spinner as="span" animation="border" size="sm" />
+                {' '}Creando...
+              </>
+            ) : (
+              'Crear y Seleccionar'
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* --- AÑADIDO: Modal para crear nueva categoría --- */}
+      <Modal
+        show={showCategoriaModal}
+        onHide={() => setShowCategoriaModal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Crear Nueva Categoría</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {errorCategoria && (
+            <Alert variant="danger">{errorCategoria}</Alert>
+          )}
+          <Form.Group>
+            <Form.Label>Nombre de la nueva categoría</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="Ej: Galletitas"
+              value={newCategoriaName}
+              onChange={(e) => setNewCategoriaName(e.target.value)}
+              autoFocus
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowCategoriaModal(false)}
+            disabled={isSubmitting}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleCrearCategoria}
+            disabled={isSubmitting}
+          >
             {isSubmitting ? (
               <>
                 <Spinner as="span" animation="border" size="sm" />
@@ -479,4 +580,3 @@ const EditarArticulo: React.FC = () => {
 };
 
 export default EditarArticulo;
-

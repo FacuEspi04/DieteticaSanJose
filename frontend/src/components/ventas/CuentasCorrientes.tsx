@@ -162,7 +162,7 @@ const CuentasCorrientes: React.FC = () => {
         <img
           src={logo}
           alt="Dietética San José"
-          style={{ height: "60px", objectFit: "contain" }}
+          style={{ height: "80px", objectFit: "contain" }}
         />
       </div>
 
@@ -246,7 +246,7 @@ const CuentasCorrientes: React.FC = () => {
                                 size="sm"
                                 onClick={() => abrirModalPago(venta)}
                               >
-                                💰 Registrar Pago
+                                Registrar Pago
                               </Button>
                             </td>
                           </tr>
@@ -266,7 +266,7 @@ const CuentasCorrientes: React.FC = () => {
       </Card>
 
       {/* Modal de registro de pago */}
-      <Modal show={showModal} onHide={() => setShowModal(false)} centered>
+      <Modal show={showModal} onHide={() => setShowModal(false)} centered size="xl" className="modal-contenido-pequeno">
         <Modal.Header
           closeButton
           style={{ backgroundColor: "#8f3d38", color: "white" }}

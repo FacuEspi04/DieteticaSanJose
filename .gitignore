@@ -2,7 +2,7 @@
 /dist
 /node_modules
 /build
-
+/node_modules 
 # Logs
 logs
 *.log
@@ -15,6 +15,7 @@ lerna-debug.log*
 # Ejecutable y base de datos local
 DieteticaSanJose.exe
 dietetica.db
+backend/dietetica.db
 # Por si se generan más archivos similares
 *.exe
 *.db

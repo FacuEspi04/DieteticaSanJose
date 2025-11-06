@@ -1,9 +1,27 @@
 import React, { useEffect, useState } from "react";
-import { Card, Table, Button, Row, Col, Form, Modal, Alert, Spinner } from "react-bootstrap";
+import {
+  Card,
+  Table,
+  Button,
+  Row,
+  Col,
+  Form,
+  Modal,
+  Alert,
+  Spinner,
+} from "react-bootstrap";
 import logo from "../../assets/dietSanJose.png";
-// --- 1. IMPORTAR LO QUE FALTA ---
-import { Trash } from "react-bootstrap-icons"; // Importar ícono de eliminar
-import { type Pedido, type Proveedor, getProveedores, getPedidos, deletePedido } from "../../services/apiService"; // Importar deletePedido
+// --- 1. IMPORTAR LO QUE FALTA (ACTUALIZADO) ---
+import { Trash, FileEarmarkPdf } from "react-bootstrap-icons"; // Importar íconos
+import jsPDF from "jspdf"; // Importar jsPDF
+import autoTable from "jspdf-autotable"; // Importar autoTable
+import {
+  type Pedido,
+  type Proveedor,
+  getProveedores,
+  getPedidos,
+  deletePedido,
+} from "../../services/apiService";
 
 // Renombrar PedidoGuardado a Pedido para consistencia
 type PedidoGuardado = Pedido;
@@ -11,7 +29,7 @@ type PedidoGuardado = Pedido;
 const ListaPedidos: React.FC = () => {
   const [pedidos, setPedidos] = useState<PedidoGuardado[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
-  
+
   // Estados de Filtro
   const [proveedorId, setProveedorId] = useState<string>("");
   const [desde, setDesde] = useState("");
@@ -22,13 +40,13 @@ const ListaPedidos: React.FC = () => {
   const [showDetalle, setShowDetalle] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [exito, setExito] = useState<string | null>(null); // <-- Añadido para feedback
+  const [exito, setExito] = useState<string | null>(null);
 
-  // --- 2. NUEVOS ESTADOS PARA MODAL DE ELIMINACIÓN ---
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [pedidoAEliminar, setPedidoAEliminar] = useState<PedidoGuardado | null>(null);
+  const [pedidoAEliminar, setPedidoAEliminar] = useState<PedidoGuardado | null>(
+    null,
+  );
   const [isDeleting, setIsDeleting] = useState(false);
-  // ---
 
   // Carga inicial (Proveedores para el filtro)
   useEffect(() => {
@@ -48,9 +66,12 @@ const ListaPedidos: React.FC = () => {
     const cargarPedidos = async () => {
       setIsLoading(true);
       setError(null);
-      // No limpiamos 'exito' aquí para que se mantenga si solo cambias de fecha
       try {
-        const data = await getPedidos(proveedorId || undefined, desde || undefined, hasta || undefined);
+        const data = await getPedidos(
+          proveedorId || undefined,
+          desde || undefined,
+          hasta || undefined,
+        );
         setPedidos(data);
       } catch (err: any) {
         setError(err.message || "Error al cargar los pedidos");
@@ -58,21 +79,19 @@ const ListaPedidos: React.FC = () => {
         setIsLoading(false);
       }
     };
-    
-    // Usamos un timeout para no hacer fetch en cada tecleo de fecha
+
     const timer = setTimeout(() => {
       cargarPedidos();
-    }, 500); // Espera 500ms después de la últimaS modificación
+    }, 500);
 
-    return () => clearTimeout(timer); // Limpia el timer si el filtro cambia de nuevo
+    return () => clearTimeout(timer);
   }, [proveedorId, desde, hasta]);
 
-
-  // --- 3. NUEVAS FUNCIONES PARA ELIMINAR ---
+  // --- Funciones de Eliminación (sin cambios) ---
   const abrirModalEliminar = (pedido: PedidoGuardado) => {
     setPedidoAEliminar(pedido);
     setShowDeleteModal(true);
-    setError(null); // Limpiar error
+    setError(null);
   };
 
   const cancelarEliminacion = () => {
@@ -82,78 +101,105 @@ const ListaPedidos: React.FC = () => {
 
   const confirmarEliminacion = async () => {
     if (!pedidoAEliminar) return;
-    
+
     setIsDeleting(true);
     setError(null);
     setExito(null);
 
     try {
       await deletePedido(pedidoAEliminar.id);
-      
-      // Actualizar estado local
-      setPedidos(prev => prev.filter(p => p.id !== pedidoAEliminar.id));
-      
+      setPedidos((prev) => prev.filter((p) => p.id !== pedidoAEliminar.id));
       setExito(`Pedido #${pedidoAEliminar.id} eliminado exitosamente.`);
       setShowDeleteModal(false);
       setPedidoAEliminar(null);
-
       setTimeout(() => setExito(null), 3000);
-
     } catch (apiError: any) {
       console.error("Error al eliminar pedido:", apiError);
       setError(apiError.message || "No se pudo eliminar el pedido.");
-      // Mantenemos el modal abierto para mostrar el error
     } finally {
       setIsDeleting(false);
     }
   };
-  // --- FIN DE NUEVAS FUNCIONES ---
+  // --- Fin Funciones de Eliminación ---
 
-
+  // --- 2. FUNCIÓN DE IMPRESIÓN REEMPLAZADA POR JSPDF ---
   const imprimirPedido = (pedido: PedidoGuardado) => {
-    // Esta función ya recibe el objeto completo, debería funcionar igual
-    const win = window.open("", "_blank");
-    if (!win) return;
-    const estilos = `
-      <style>
-        body{ font-family: Arial, sans-serif; padding: 16px; }
-        h2{ margin: 0 0 8px 0; }
-        .muted{ color:#666; }
-        table{ width:100%; border-collapse: collapse; margin-top:12px; }
-        th, td{ border:1px solid #ccc; padding:8px; text-align:left; }
-        thead{ background:#f0f0f0; }
-      </style>
-    `;
-    const filas = pedido.items.map(i => `<tr><td>${i.articulo.nombre}</td><td>${i.cantidad}</td></tr>`).join("");
-    const html = `
-      ${estilos}
-      <h2>Pedido a Proveedor</h2>
-      <div class="muted">Fecha: ${new Date(pedido.fechaPedido).toLocaleDateString('es-AR')}</div>
-      <h3>Proveedor</h3>
-      <div><strong>${pedido.proveedor.nombre}</strong></div>
-      ${pedido.proveedor.contacto ? `<div>Contacto: ${pedido.proveedor.contacto}</div>` : ''}
-      ${pedido.proveedor.telefono ? `<div>Teléfono: ${pedido.proveedor.telefono}</div>` : ''}
-      ${pedido.proveedor.email ? `<div>Email: ${pedido.proveedor.email}</div>` : ''}
-      ${pedido.notas ? `<div><strong>Observaciones:</strong> ${pedido.notas}</div>` : ''}
-      <h3 style="margin-top:16px">Artículos</h3>
-      <table>
-        <thead><tr><th>Artículo</th><th>Cantidad</th></tr></thead>
-        <tbody>${filas}</tbody>
-      </table>
-    `;
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    win.print();
+    const doc = new jsPDF();
+    const margin = 14;
+    const fechaFormateada = new Date(pedido.fechaPedido).toLocaleDateString(
+      "es-AR",
+    );
+
+    // Título
+    doc.setFontSize(18);
+    doc.text(`Pedido a Proveedor`, margin, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`Fecha Pedido: ${fechaFormateada}`, margin, 28);
+    doc.text(`Estado: ${pedido.estado}`, margin, 34);
+
+    // Sección Proveedor
+    doc.setFontSize(14);
+    doc.text("Proveedor", margin, 46);
+    doc.setFontSize(11);
+    doc.setTextColor(0);
+    let startY = 52;
+    doc.text(`Nombre: ${pedido.proveedor.nombre}`, margin, startY);
+    if (pedido.proveedor.contacto) {
+      startY += 6;
+      doc.text(`Contacto: ${pedido.proveedor.contacto}`, margin, startY);
+    }
+    if (pedido.proveedor.telefono) {
+      startY += 6;
+      doc.text(`Teléfono: ${pedido.proveedor.telefono}`, margin, startY);
+    }
+    if (pedido.proveedor.email) {
+      startY += 6;
+      doc.text(`Email: ${pedido.proveedor.email}`, margin, startY);
+    }
+
+    // Observaciones
+    if (pedido.notas) {
+      startY += 8;
+      doc.setFontSize(12);
+      doc.text("Observaciones:", margin, startY);
+      doc.setFontSize(11);
+      startY += 6;
+      const notes = doc.splitTextToSize(pedido.notas, 180);
+      doc.text(notes, margin, startY);
+      startY += notes.length * 6;
+    }
+
+    // Sección Artículos (Tabla)
+    startY += 10;
+    doc.setFontSize(14);
+    doc.text("Artículos Pedidos", margin, startY);
+
+    autoTable(doc, {
+      startY: startY + 4,
+      head: [["Artículo", "Cantidad Pedida"]],
+      body: pedido.items.map((i) => [i.articulo.nombre, i.cantidad]),
+      theme: "striped",
+      headStyles: { fillColor: [143, 61, 56] }, // Color principal
+    });
+
+    // Guardar el archivo
+    doc.save(
+      `pedido_${pedido.proveedor.nombre.replace(/ /g, "_")}_${fechaFormateada}.pdf`,
+    );
   };
-  
-  // No necesitamos más pedidosFiltrados, la API ya los entrega filtrados
+  // --- FIN DE LA FUNCIÓN MODIFICADA ---
+
   const pedidosFiltrados = pedidos;
 
   return (
     <div>
       <div className="d-flex justify-content-end mb-3">
-        <img src={logo} alt="Dietética San José" style={{ height: '80px', objectFit: 'contain' }} />
+        <img
+          src={logo}
+          alt="Dietética San José"
+          style={{ height: "80px", objectFit: "contain" }}
+        />
       </div>
       <Card className="mt-4 shadow-sm">
         <Card.Header>
@@ -164,41 +210,54 @@ const ListaPedidos: React.FC = () => {
             <Col md={4}>
               <Form.Group>
                 <Form.Label>Proveedor</Form.Label>
-                <Form.Select value={proveedorId} onChange={e => setProveedorId(e.target.value)}>
+                <Form.Select
+                  value={proveedorId}
+                  onChange={(e) => setProveedorId(e.target.value)}
+                >
                   <option value="">Todos</option>
-                  {proveedores.map(p => (<option key={p.id} value={p.id}>{p.nombre}</option>))}
+                  {proveedores.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre}
+                    </option>
+                  ))}
                 </Form.Select>
               </Form.Group>
             </Col>
             <Col md={4}>
               <Form.Group>
                 <Form.Label>Desde (fecha)</Form.Label>
-                <Form.Control type="date" value={desde} onChange={e => setDesde(e.target.value)} />
+                <Form.Control
+                  type="date"
+                  value={desde}
+                  onChange={(e) => setDesde(e.target.value)}
+                />
               </Form.Group>
             </Col>
             <Col md={4}>
               <Form.Group>
                 <Form.Label>Hasta (fecha)</Form.Label>
-                <Form.Control type="date" value={hasta} onChange={e => setHasta(e.target.value)} />
+                <Form.Control
+                  type="date"
+                  value={hasta}
+                  onChange={(e) => setHasta(e.target.value)}
+                />
               </Form.Group>
             </Col>
           </Row>
 
-          {/* Mostrar error o éxito general */}
           {error && (
             <Alert variant="danger" onClose={() => setError(null)} dismissible>
               {error}
             </Alert>
           )}
           {exito && (
-             <Alert variant="success" onClose={() => setExito(null)} dismissible>
+            <Alert variant="success" onClose={() => setExito(null)} dismissible>
               {exito}
             </Alert>
           )}
 
-
           {isLoading ? (
-             <div className="text-center my-5">
+            <div className="text-center my-5">
               <Spinner animation="border" variant="success" />
               <p className="mt-2">Cargando pedidos...</p>
             </div>
@@ -207,46 +266,76 @@ const ListaPedidos: React.FC = () => {
               <thead style={{ backgroundColor: "#8f3d38", color: "white" }}>
                 <tr>
                   <th>Fecha</th>
-                  {/* <th>Hora</th> */}
                   <th>Proveedor</th>
                   <th>Ítems</th>
                   <th>Total</th>
-                  <th>Acciones</th>
+                  {/* --- 3. COLSPAN ACTUALIZADO (A 5) --- */}
+                  <th colSpan={3}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {pedidosFiltrados.length > 0 ? pedidosFiltrados.map(pedido => (
-                  <tr key={pedido.id}>
-                    <td>{new Date(pedido.fechaPedido).toLocaleDateString('es-AR')}</td>
-                    {/* <td>{new Date(pedido.createdAt).toLocaleTimeString('es-AR')}</td> */}
-                    <td>{pedido.proveedor.nombre}</td>
-                    <td>{pedido.items.length}</td>
-                    <td>${Number(pedido.total).toFixed(2)}</td>
-                    {/* --- 4. CELDAS DE ACCIÓN ACTUALIZADAS --- */}
-                    <td className="d-flex gap-2">
-                      <Button variant="info" size="sm" onClick={() => { setPedidoDetalle(pedido); setShowDetalle(true); }}>Ver</Button>
-                      <Button variant="warning" size="sm" onClick={() => imprimirPedido(pedido)}>PDF</Button>
-                      <Button 
-                        variant="outline-danger" 
-                        size="sm"
-                        onClick={() => abrirModalEliminar(pedido)}
-                        title="Eliminar pedido"
-                      >
-                        <Trash />
-                      </Button>
-                    </td>
-                  </tr>
-                )) : (
+                {pedidosFiltrados.length > 0 ? (
+                  pedidosFiltrados.map((pedido) => (
+                    <tr key={pedido.id}>
+                      <td>
+                        {new Date(pedido.fechaPedido).toLocaleDateString(
+                          "es-AR",
+                        )}
+                      </td>
+                      <td>{pedido.proveedor.nombre}</td>
+                      <td>{pedido.items.length}</td>
+                      <td>${Number(pedido.total).toFixed(2)}</td>
+                      {/* --- 4. CELDAS DE ACCIÓN ACTUALIZADAS CON ÍCONOS --- */}
+                      <td style={{ width: "70px" }}>
+                        <Button
+                          variant="info"
+                          size="sm"
+                          className="w-100"
+                          onClick={() => {
+                            setPedidoDetalle(pedido);
+                            setShowDetalle(true);
+                          }}
+                        >
+                          Ver
+                        </Button>
+                      </td>
+                      <td style={{ width: "70px" }}>
+                        <Button
+                          variant="warning"
+                          size="sm"
+                          className="w-100"
+                          onClick={() => imprimirPedido(pedido)}
+                          title="Descargar PDF"
+                        >
+                          <FileEarmarkPdf />
+                        </Button>
+                      </td>
+                      <td style={{ width: "70px" }}>
+                        <Button
+                          variant="outline-danger"
+                          size="sm"
+                          className="w-100"
+                          onClick={() => abrirModalEliminar(pedido)}
+                          title="Eliminar pedido"
+                        >
+                          <Trash />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
                   <tr>
-                    {/* --- 5. COLSPAN ACTUALIZADO A 6 --- */}
-                    <td colSpan={6} className="text-center">No hay pedidos registrados en este rango/proveedor.</td>
+                    {/* --- 5. COLSPAN ACTUALIZADO A 7 --- */}
+                    <td colSpan={7} className="text-center">
+                      No hay pedidos registrados en este rango/proveedor.
+                    </td>
                   </tr>
                 )}
               </tbody>
             </Table>
           )}
 
-          {/* Modal de Detalle (sin cambios) */}
+          {/* Modal de Detalle */}
           <Modal show={showDetalle} onHide={() => setShowDetalle(false)} centered>
             <Modal.Header closeButton>
               <Modal.Title>Detalle de Pedido</Modal.Title>
@@ -254,42 +343,96 @@ const ListaPedidos: React.FC = () => {
             <Modal.Body>
               {pedidoDetalle && (
                 <>
-                  <div><strong>Fecha:</strong> {new Date(pedidoDetalle.fechaPedido).toLocaleDateString('es-AR')}</div>
-                  <div><strong>Proveedor:</strong> {pedidoDetalle.proveedor.nombre}</div>
-                  {pedidoDetalle.proveedor.contacto && <div><strong>Contacto:</strong> {pedidoDetalle.proveedor.contacto}</div>}
-                  {pedidoDetalle.proveedor.telefono && <div><strong>Tel.:</strong> {pedidoDetalle.proveedor.telefono}</div>}
-                  {pedidoDetalle.proveedor.email && <div><strong>Email:</strong> {pedidoDetalle.proveedor.email}</div>}
-                  <div className="mt-2"><strong>Artículos:</strong>
+                  <div>
+                    <strong>Fecha:</strong>{" "}
+                    {new Date(pedidoDetalle.fechaPedido).toLocaleDateString(
+                      "es-AR",
+                    )}
+                  </div>
+                  <div>
+                    <strong>Proveedor:</strong> {pedidoDetalle.proveedor.nombre}
+                  </div>
+                  {pedidoDetalle.proveedor.contacto && (
+                    <div>
+                      <strong>Contacto:</strong>{" "}
+                      {pedidoDetalle.proveedor.contacto}
+                    </div>
+                  )}
+                  {pedidoDetalle.proveedor.telefono && (
+                    <div>
+                      <strong>Tel.:</strong> {pedidoDetalle.proveedor.telefono}
+                    </div>
+                  )}
+                  {pedidoDetalle.proveedor.email && (
+                    <div>
+                      <strong>Email:</strong> {pedidoDetalle.proveedor.email}
+                    </div>
+                  )}
+                  <div className="mt-2">
+                    <strong>Artículos:</strong>
                     <ul>
-                      {/* Usamos el objeto anidado 'articulo' que viene de la API */}
-                      {pedidoDetalle.items.map(i => <li key={i.id}>{i.articulo.nombre} x{i.cantidad}</li>)}
+                      {pedidoDetalle.items.map((i) => (
+                        <li key={i.id}>
+                          {i.articulo.nombre} x{i.cantidad}
+                        </li>
+                      ))}
                     </ul>
                   </div>
-                  {pedidoDetalle.notas && <div className="mt-2"><strong>Observaciones:</strong> {pedidoDetalle.notas}</div>}
+                  {pedidoDetalle.notas && (
+                    <div className="mt-2">
+                      <strong>Observaciones:</strong> {pedidoDetalle.notas}
+                    </div>
+                  )}
                 </>
               )}
             </Modal.Body>
             <Modal.Footer>
-              <Button variant="secondary" onClick={() => setShowDetalle(false)}>Cerrar</Button>
-              {pedidoDetalle && <Button variant="warning" onClick={() => imprimirPedido(pedidoDetalle)}>Descargar PDF</Button>}
+              <Button variant="secondary" onClick={() => setShowDetalle(false)}>
+                Cerrar
+              </Button>
+              {/* --- 6. BOTÓN PDF MODAL ACTUALIZADO --- */}
+              {pedidoDetalle && (
+                <Button
+                  variant="warning"
+                  onClick={() => imprimirPedido(pedidoDetalle)}
+                >
+                  <FileEarmarkPdf className="me-1" />
+                  Descargar PDF
+                </Button>
+              )}
             </Modal.Footer>
           </Modal>
 
-          {/* --- 6. NUEVO MODAL DE ELIMINACIÓN --- */}
-          <Modal show={showDeleteModal} onHide={cancelarEliminacion} centered>
-            <Modal.Header closeButton style={{ backgroundColor: "#8f3d38", color: "white" }}>
+          {/* Modal de Eliminación */}
+          <Modal
+            show={showDeleteModal}
+            onHide={cancelarEliminacion}
+            centered
+          >
+            <Modal.Header
+              closeButton
+              style={{ backgroundColor: "#8f3d38", color: "white" }}
+            >
               <Modal.Title>Confirmar Eliminación</Modal.Title>
             </Modal.Header>
             <Modal.Body>
-              {error && isDeleting && (
-                <Alert variant="danger">{error}</Alert>
-              )}
+              {error && isDeleting && <Alert variant="danger">{error}</Alert>}
               {pedidoAEliminar && (
                 <>
-                  <p>¿Estás seguro de que deseas eliminar permanentemente el pedido al proveedor <strong>{pedidoAEliminar.proveedor.nombre}</strong>?</p>
+                  <p>
+                    ¿Estás seguro de que deseas eliminar permanentemente el
+                    pedido al proveedor{" "}
+                    <strong>{pedidoAEliminar.proveedor.nombre}</strong>?
+                  </p>
                   <div className="alert alert-warning">
-                    <strong>Fecha:</strong> {new Date(pedidoAEliminar.fechaPedido).toLocaleDateString('es-AR')}<br/>
-                    <strong>Total:</strong> ${Number(pedidoAEliminar.total).toFixed(2)}<br/>
+                    <strong>Fecha:</strong>{" "}
+                    {new Date(pedidoAEliminar.fechaPedido).toLocaleDateString(
+                      "es-AR",
+                    )}
+                    <br />
+                    <strong>Total:</strong> $
+                    {Number(pedidoAEliminar.total).toFixed(2)}
+                    <br />
                     <strong>Items:</strong> {pedidoAEliminar.items.length}
                   </div>
                   <p className="text-danger">
@@ -313,7 +456,11 @@ const ListaPedidos: React.FC = () => {
               >
                 {isDeleting ? (
                   <>
-                    <Spinner animation="border" size="sm" className="me-2" />
+                    <Spinner
+                      animation="border"
+                      size="sm"
+                      className="me-2"
+                    />
                     Eliminando...
                   </>
                 ) : (
@@ -322,7 +469,6 @@ const ListaPedidos: React.FC = () => {
               </Button>
             </Modal.Footer>
           </Modal>
-
         </Card.Body>
       </Card>
     </div>
@@ -330,4 +476,3 @@ const ListaPedidos: React.FC = () => {
 };
 
 export default ListaPedidos;
-

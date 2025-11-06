@@ -8,6 +8,11 @@ export interface Categoria {
   nombre: string;
 }
 
+// --- AÑADIDO: DTO para crear Categoria ---
+export interface CreateCategoriaDto {
+  nombre: string;
+}
+
 // --- 1. NUEVOS TIPOS DE MARCA ---
 export interface Marca {
   id: number;
@@ -23,7 +28,7 @@ export interface Articulo {
   nombre: string;
   marca: Marca | null; // <-- CORREGIDO: Ahora es un objeto
   codigo_barras: string;
-  precio: string | number; 
+  precio: string | number;
   stock: number;
   stock_minimo: number;
   categoria: Categoria | null; // <-- CORREGIDO: Acepta null
@@ -75,7 +80,7 @@ export interface CreateProveedorDto {
 export interface PedidoItem {
   id: number;
   articuloId: number;
-  articulo: Articulo; 
+  articulo: Articulo;
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
@@ -84,7 +89,7 @@ export interface PedidoItem {
 export interface Pedido {
   id: number;
   proveedorId: number;
-  proveedor: Proveedor; 
+  proveedor: Proveedor;
   fechaPedido: Date;
   estado: string;
   total: number;
@@ -114,14 +119,14 @@ export type VentaEstado = 'Completada' | 'Pendiente';
 export interface VentaDetalle {
   id: number;
   articuloId: number;
-  articulo: Articulo; 
+  articulo: Articulo;
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
 }
 
 export interface Venta {
-  id: number; 
+  id: number;
   numeroVenta: number;
   clienteId: number | null;
   clienteNombre: string;
@@ -129,7 +134,7 @@ export interface Venta {
   subtotal: number;
   interes: number;
   total: number;
-  formaPago: FormaPago | null; 
+  formaPago: FormaPago | null;
   estado: VentaEstado;
   turno: string;
   items: VentaDetalle[];
@@ -145,8 +150,8 @@ export interface CreateVentaDto {
   clienteNombre: string;
   clienteId?: number;
   items: CreateVentaItemDto[];
-  formaPago: FormaPago | null; 
-  estado: VentaEstado; 
+  formaPago: FormaPago | null;
+  estado: VentaEstado;
   interes?: number;
   nota?: string;
 }
@@ -242,6 +247,25 @@ export const getCategorias = async (): Promise<Categoria[]> => {
   return await response.json();
 };
 
+// --- AÑADIDO: Servicio para crear Categoria ---
+export const createCategoria = async (
+  categoriaData: CreateCategoriaDto,
+): Promise<Categoria> => {
+  const response = await fetch(`${API_URL}/categorias`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(categoriaData),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    // Replicamos el manejo de error de createMarca
+    throw new Error(
+      errorData.message.join(', ') || 'Error al crear la categoría',
+    );
+  }
+  return await response.json();
+};
+
 // --- 2. NUEVOS SERVICIOS DE MARCAS ---
 export const getMarcas = async (): Promise<Marca[]> => {
   const response = await fetch(`${API_URL}/marcas`);
@@ -297,22 +321,22 @@ export const createProveedor = async (
 
 // --- AÑADIDO: updateProveedor ---
 export const updateProveedor = async (
- id: number,
- proveedorData: UpdateProveedorDto,
+  id: number,
+  proveedorData: UpdateProveedorDto,
 ): Promise<Proveedor> => {
- const response = await fetch(`${API_URL}/proveedores/${id}`, {
- method: 'PATCH',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify(proveedorData), 
-});
- if (!response.ok) {
- if (response.status === 400) {
- 	  const error = await response.json();
- 	  throw new Error(error.message.join(', '));
- 	}
- throw new Error('Error al actualizar el proveedor');
- }
- return await response.json();
+  const response = await fetch(`${API_URL}/proveedores/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(proveedorData),
+  });
+  if (!response.ok) {
+    if (response.status === 400) {
+      const error = await response.json();
+      throw new Error(error.message.join(', '));
+    }
+    throw new Error('Error al actualizar el proveedor');
+  }
+  return await response.json();
 };
 
 export const getProveedorById = async (id: number): Promise<Proveedor> => {
@@ -426,13 +450,14 @@ export const createVenta = async (ventaData: CreateVentaDto): Promise<Venta> => 
     throw new Error(errorData.message || 'Error al crear la venta');
   }
   return await response.json();
-}; 
+};
 
 export const registrarPagoVenta = async (
   ventaId: number, // Usamos el 'id'
   pagoData: RegistrarPagoDto,
 ): Promise<Venta> => {
-  const response = await fetch(`${API_URL}/ventas/${ventaId}/pagar`, { // Usamos el 'id'
+  const response = await fetch(`${API_URL}/ventas/${ventaId}/pagar`, {
+    // Usamos el 'id'
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(pagoData),
@@ -447,7 +472,8 @@ export const registrarPagoVenta = async (
 export const deleteVenta = async (
   ventaId: number, // Usamos el 'id'
 ): Promise<{ message: string; ventaEliminada: number }> => {
-  const response = await fetch(`${API_URL}/ventas/${ventaId}`, { // Usamos el 'id'
+  const response = await fetch(`${API_URL}/ventas/${ventaId}`, {
+    // Usamos el 'id'
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -467,7 +493,9 @@ export const getRetirosPorFecha = async (fecha: string): Promise<Retiro[]> => {
   return await response.json();
 };
 
-export const createRetiro = async (retiroData: CreateRetiroDto): Promise<Retiro> => {
+export const createRetiro = async (
+  retiroData: CreateRetiroDto,
+): Promise<Retiro> => {
   const response = await fetch(`${API_URL}/retiros`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -479,4 +507,3 @@ export const createRetiro = async (retiroData: CreateRetiroDto): Promise<Retiro>
   }
   return await response.json();
 };
-

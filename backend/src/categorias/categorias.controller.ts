@@ -11,7 +11,7 @@ export class CategoriasController {
   create(@Body() createCategoriaDto: CreateCategoriaDto) {
     return this.categoriasService.create(createCategoriaDto);
   }
-
+  
   @Get()
   findAll() {
     return this.categoriasService.findAll();
