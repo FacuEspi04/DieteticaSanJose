@@ -1,5 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-
+/* poppins-regular - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/fonts/poppins-v24-latin-regular.woff2') format('woff2'); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
 /* Estilos globales */
 body {
   font-family: 'Poppins', sans-serif;
@@ -10,6 +16,8 @@ body {
 * {
   font-family: 'Poppins', sans-serif;
 }
+
+
 
 /* Variables de colores */ 
 :root {
@@ -60,8 +68,8 @@ body {
 }
 
 /* Aplicamos los estilos de hover y activo */
-.custom-navlink:hover,
-.custom-navlink.active { /* <-- .active se agregará en el siguiente paso */
+.custom-navlink:hover
+ { /* <-- .active se agregará en el siguiente paso */
   color: var(--dark-hover) !important;
   background-color: rgba(255, 255, 255, 0.1) !important; /* <-- AÑADE !important AQUÍ */
 }
@@ -123,4 +131,17 @@ body {
 .modal-contenido-pequeno .form-select,
 .modal-contenido-pequeno .alert {
   font-size: 1rem;
+}
+
+.boton-marron {
+ background-color: transparent !important;
+ border-color: #A67B5B !important;
+ color: #A67B5B !important; /* Texto del mismo color marrón */
+}
+
+/* Efecto al pasar el mouse */
+.boton-marron:hover {
+ background-color: #A67B5B !important; /* Se rellena al pasar el mouse */
+ border-color: #A67B5B !important;
+ color: #FFFFFF !important; /* El texto cambia a blanco */
 }

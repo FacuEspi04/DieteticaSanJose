@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Card,
   Form,
@@ -9,8 +9,9 @@ import {
   Table,
   Badge,
   Spinner,
+  ListGroup,
 } from "react-bootstrap";
-import { UpcScan, Trash, CheckCircle, ArrowLeft } from "react-bootstrap-icons";
+import { UpcScan, Trash, CheckCircle, ArrowLeft, Search } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 import logo from "../../assets/dietSanJose.png";
 // Importamos los servicios y tipos
@@ -19,16 +20,17 @@ import {
   createVenta,
   type CreateVentaDto,
   type CreateVentaItemDto,
-  type FormaPago, 
+  type FormaPago,
   type VentaEstado,
   type Articulo,
 } from "../../services/apiService";
 
-// El tipo de Articulo que usa este componente (simplificado)
+// El tipo de Articulo que usa este componente
 interface ArticuloVenta {
   id: number;
   nombre: string;
   codigoBarras: string;
+  marca: string;
   stock: number;
   precio: number;
 }
@@ -42,42 +44,64 @@ interface ItemVenta {
 const RegistrarVenta: React.FC = () => {
   const navigate = useNavigate();
   const [codigoBarras, setCodigoBarras] = useState("");
+  
+  // Estado para las sugerencias de búsqueda por nombre
+  const [sugerencias, setSugerencias] = useState<ArticuloVenta[]>([]);
+  const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
+
   const [itemsVenta, setItemsVenta] = useState<ItemVenta[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState("");
   const [exito, setExito] = useState("");
   const [nombreCliente, setNombreCliente] = useState("");
   const [catalogoArticulos, setCatalogoArticulos] = useState<ArticuloVenta[]>([]);
-  // Usamos el TIPO 'FormaPago' para el estado
+  
   const [formaPago, setFormaPago] = useState<FormaPago>("efectivo");
-  const [interesPorcentaje, setInteresPorcentaje] = useState<string>("10"); // %
+  const [interesPorcentaje, setInteresPorcentaje] = useState<string>("10");
   const [esCtaCte, setEsCtaCte] = useState<boolean>(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Referencia para manejar clics fuera del buscador
+  const searchWrapperRef = useRef<HTMLDivElement>(null);
 
   // Cargar artículos desde la API
   useEffect(() => {
     const cargarCatalogo = async () => {
       setIsLoading(true);
       try {
-        const apiItems: Articulo[] = await getArticulos(); // Usamos el tipo Articulo
-        const mapeados: ArticuloVenta[] = apiItems.map((a) => ({
-          // --- CORRECCIÓN 1: Forzar conversión a número al cargar ---
-          id: Number(a.id), 
-          nombre: a.nombre,
-          marca: a.marca || '', 
-          codigoBarras: a.codigo_barras,
-          precio: Number(a.precio), 
-          stock: a.stock ?? 0,
-        }));
+        const apiItems: Articulo[] = await getArticulos();
+        
+        const mapeados: ArticuloVenta[] = apiItems.map((a) => {
+          // 1. Lógica explicita para extraer el nombre de la marca
+          let nombreMarca = '';
+          
+          if (typeof a.marca === 'object' && a.marca !== null) {
+            // Si es objeto, forzamos 'any' para sacar el nombre sin errores
+            nombreMarca = (a.marca as any).nombre || '';
+          } else {
+            // Si es string o null, lo convertimos a string seguro
+            nombreMarca = String(a.marca || '');
+          }
+
+          // 2. Retornamos el objeto limpio
+          return {
+            id: Number(a.id),
+            nombre: a.nombre,
+            marca: nombreMarca,
+            codigoBarras: a.codigo_barras,
+            precio: Number(a.precio),
+            stock: a.stock ?? 0,
+          };
+        });
+
         setCatalogoArticulos(mapeados);
-        setError(""); // Limpiar error si la carga fue exitosa
+        setError("");
       } catch (e: any) {
         console.error("Error al cargar artículos:", e);
-        setError("Error al cargar el catálogo de artículos. " + e.message);
-        setCatalogoArticulos([]); 
+        setError("Error al cargar el catálogo. " + e.message);
+        setCatalogoArticulos([]);
       } finally {
         setIsLoading(false);
       }
@@ -86,48 +110,57 @@ const RegistrarVenta: React.FC = () => {
     cargarCatalogo();
   }, []);
 
-  // Buscar artículo por código de barras
-  const buscarArticulo = (codigo: string): ArticuloVenta | undefined => {
-    return catalogoArticulos.find((art) => art.codigoBarras === codigo);
+  // Efecto para cerrar sugerencias si clicamos fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchWrapperRef.current && !searchWrapperRef.current.contains(event.target as Node)) {
+        setMostrarSugerencias(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Lógica de filtrado mientras el usuario escribe
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const texto = e.target.value;
+    setCodigoBarras(texto);
+
+    if (texto.length > 1) {
+      const matches = catalogoArticulos.filter((art) => 
+        art.nombre.toLowerCase().includes(texto.toLowerCase()) ||
+        art.codigoBarras.includes(texto)
+      );
+      setSugerencias(matches.slice(0, 5));
+      setMostrarSugerencias(true);
+    } else {
+      setSugerencias([]);
+      setMostrarSugerencias(false);
+    }
   };
 
-  // Agregar producto a la venta
-  const agregarProducto = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Lógica para agregar un artículo
+  const procesarAgregadoDeArticulo = (articulo: ArticuloVenta) => {
     setError("");
-
-    const codigo = codigoBarras.trim();
-    if (!codigo) {
-      setError("Por favor, escanea o ingresa un código de barras");
-      return;
-    }
-
-    const articulo = buscarArticulo(codigo);
-
-    if (!articulo) {
-      setError(`No se encontró ningún artículo con el código: ${codigo}`);
-      setCodigoBarras("");
-      return;
-    }
 
     if (articulo.stock <= 0) {
       setError(`El artículo "${articulo.nombre}" no tiene stock disponible`);
-      setCodigoBarras("");
+      setCodigoBarras(""); 
+      setMostrarSugerencias(false);
       return;
     }
 
-    // Verificar si ya está en la venta
     const itemExistente = itemsVenta.find(
       (item) => item.articulo.id === articulo.id,
     );
 
     if (itemExistente) {
-      // Incrementar cantidad
       if (itemExistente.cantidad >= articulo.stock) {
         setError(
-          `No hay suficiente stock de "${articulo.nombre}". Stock disponible: ${articulo.stock}`,
+          `No hay suficiente stock de "${articulo.nombre}". Disponible: ${articulo.stock}`,
         );
         setCodigoBarras("");
+        setMostrarSugerencias(false);
         return;
       }
 
@@ -143,7 +176,6 @@ const RegistrarVenta: React.FC = () => {
         ),
       );
     } else {
-      // Agregar nuevo item
       setItemsVenta([
         ...itemsVenta,
         {
@@ -155,14 +187,41 @@ const RegistrarVenta: React.FC = () => {
     }
 
     setCodigoBarras("");
+    setSugerencias([]);
+    setMostrarSugerencias(false);
   };
 
-  // Eliminar item de la venta
+  // Buscar por código EXACTO
+  const buscarArticuloPorCodigo = (codigo: string): ArticuloVenta | undefined => {
+    return catalogoArticulos.find((art) => art.codigoBarras === codigo);
+  };
+
+  // Manejar el Submit (Enter)
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const codigo = codigoBarras.trim();
+    if (!codigo) return;
+
+    const articuloPorCodigo = buscarArticuloPorCodigo(codigo);
+
+    if (articuloPorCodigo) {
+      procesarAgregadoDeArticulo(articuloPorCodigo);
+    } else {
+      if (sugerencias.length === 1) {
+        procesarAgregadoDeArticulo(sugerencias[0]);
+      } else if (sugerencias.length > 1) {
+        setError("Múltiples productos encontrados. Por favor selecciona uno de la lista.");
+      } else {
+        setError(`No se encontró ningún artículo con el código o nombre: ${codigo}`);
+      }
+    }
+  };
+
   const eliminarItem = (articuloId: number) => {
     setItemsVenta(itemsVenta.filter((item) => item.articulo.id !== articuloId));
   };
 
-  // Actualizar cantidad de un item
   const actualizarCantidad = (articuloId: number, nuevaCantidad: number) => {
     if (nuevaCantidad <= 0) {
       eliminarItem(articuloId);
@@ -172,25 +231,12 @@ const RegistrarVenta: React.FC = () => {
     const item = itemsVenta.find((i) => i.articulo.id === articuloId);
     if (!item) return;
 
-    // Verificar que no exceda el stock
     if (nuevaCantidad > item.articulo.stock) {
       setError(`Stock insuficiente. Disponible: ${item.articulo.stock}`);
-      // Volver al máximo stock
-      setItemsVenta(
-        itemsVenta.map((i) =>
-          i.articulo.id === articuloId
-            ? {
-                ...i,
-                cantidad: i.articulo.stock,
-                subtotal: i.articulo.stock * i.articulo.precio,
-              }
-            : i,
-        ),
-      );
+      setItemsVenta(itemsVenta.map(i => i.articulo.id === articuloId ? {...i, cantidad: i.articulo.stock, subtotal: i.articulo.stock * i.articulo.precio} : i));
       return;
     }
 
-    // Limpiar error si la cantidad es válida
     setError("");
     setItemsVenta(
       itemsVenta.map((item) =>
@@ -205,15 +251,12 @@ const RegistrarVenta: React.FC = () => {
     );
   };
 
-  // Calcular total
   const calcularTotal = (): number => {
     return itemsVenta.reduce((total, item) => total + item.subtotal, 0);
   };
 
-  // Calcular interés
   const calcularInteres = (): number => {
     if (esCtaCte) return 0; 
-    
     if (formaPago === "credito") {
       const subtotal = calcularTotal();
       const porcentaje = parseFloat(interesPorcentaje) || 0;
@@ -222,12 +265,10 @@ const RegistrarVenta: React.FC = () => {
     return 0;
   };
 
-  // Calcular total final con interés
   const calcularTotalFinal = (): number => {
     return calcularTotal() + calcularInteres();
   };
 
-  // Confirmar venta
   const confirmarVenta = () => {
     if (itemsVenta.length === 0) {
       setError("No hay productos en la venta");
@@ -240,51 +281,43 @@ const RegistrarVenta: React.FC = () => {
     setShowModal(true);
   };
 
-  // Procesar venta y guardar en API
   const procesarVenta = async () => {
     setIsSubmitting(true);
     setError("");
 
-    // 1. Mapear items al DTO
     const itemsDto: CreateVentaItemDto[] = itemsVenta.map(item => ({
-      // --- CORRECCIÓN 2: Forzar conversión a número al enviar ---
       articuloId: Number(item.articulo.id), 
       cantidad: item.cantidad,
     }));
 
-    // 2. Crear el DTO de Venta
     const estadoVenta: VentaEstado = esCtaCte ? "Pendiente" : "Completada";
     
     const nuevaVenta: CreateVentaDto = {
       clienteNombre: nombreCliente.trim() || "Cliente General",
-      // clienteId: (opcional)
       items: itemsDto,
       formaPago: esCtaCte ? null : formaPago, 
       estado: estadoVenta,
       interes: calcularInteres(), 
-      // nota: (opcional)
     };
 
     try {
-      // 3. Llamar a la API
       const ventaGuardada = await createVenta(nuevaVenta);
       
       setShowModal(false);
       setExito(`¡Venta N° ${ventaGuardada.numeroVenta} registrada! Total: $${Number(ventaGuardada.total).toFixed(2)}`);
       
-      // 4. Limpiar formulario
       setItemsVenta([]);
       setNombreCliente("");
       setFormaPago("efectivo");
       setEsCtaCte(false);
       setInteresPorcentaje("10");
+      setCodigoBarras("");
 
-      // Recargar el catálogo para actualizar stock
       const apiItems = await getArticulos();
       const mapeados: ArticuloVenta[] = apiItems.map((a) => ({
-        id: Number(a.id), // Asegurar que sea número
+        id: Number(a.id),
         nombre: a.nombre,
-        marca: a.marca || '',
+        marca: typeof a.marca === 'object' && a.marca !== null ? (a.marca as any).nombre || '' : String(a.marca || ''),
         codigoBarras: a.codigo_barras,
         precio: Number(a.precio),
         stock: a.stock ?? 0,
@@ -294,15 +327,14 @@ const RegistrarVenta: React.FC = () => {
       setTimeout(() => setExito(""), 3000);
 
     } catch (apiError: any) {
-      console.error("Error al procesar la venta:", apiError);
-      setError(apiError.message || "Error al procesar la venta. Verifique el stock.");
-      setShowModal(false); // Cerrar modal para mostrar error
+      console.error("Error al procesar:", apiError);
+      setError(apiError.message || "Error al procesar la venta.");
+      setShowModal(false); 
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Cancelar venta
   const cancelarVenta = () => {
     setItemsVenta([]);
     setCodigoBarras("");
@@ -314,7 +346,6 @@ const RegistrarVenta: React.FC = () => {
 
   return (
     <div>
-      {/* Logo en la esquina superior derecha */}
       <div className="d-flex justify-content-end mb-3">
         <img
           src={logo}
@@ -337,7 +368,6 @@ const RegistrarVenta: React.FC = () => {
             <h5 className="mb-0">Registrar Nueva Venta</h5>
           </Card.Header>
           <Card.Body>
-            {/* Mensajes de error y éxito */}
             {error && (
               <Alert variant="danger" dismissible onClose={() => setError("")}>
                 {error}
@@ -350,12 +380,8 @@ const RegistrarVenta: React.FC = () => {
               </Alert>
             )}
 
-            {/* Campo de cliente */}
             <Form.Group className="mb-3">
-              <Form.Label>
-                Nombre del Cliente{" "}
-                {esCtaCte && <span className="text-danger">*</span>}
-              </Form.Label>
+              <Form.Label>Nombre del Cliente {esCtaCte && <span className="text-danger">*</span>}</Form.Label>
               <Form.Control
                 type="text"
                 placeholder="Ingresa el nombre del cliente..."
@@ -363,32 +389,22 @@ const RegistrarVenta: React.FC = () => {
                 onChange={(e) => setNombreCliente(e.target.value)}
                 required={esCtaCte}
               />
-              {esCtaCte && (
-                <Form.Text className="text-danger">
-                  El nombre es obligatorio para cuenta corriente
-                </Form.Text>
-              )}
+              {esCtaCte && <Form.Text className="text-danger">El nombre es obligatorio para cuenta corriente</Form.Text>}
             </Form.Group>
 
-            {/* Checkbox de Cuenta Corriente */}
             <Form.Group className="mb-3">
               <Form.Check
                 type="checkbox"
                 label="🏦 Venta en Cuenta Corriente (pago pendiente)"
                 checked={esCtaCte}
-                onChange={(e) => {
-                  setEsCtaCte(e.target.checked);
-                }}
+                onChange={(e) => setEsCtaCte(e.target.checked)}
               />
             </Form.Group>
 
-            {/* Forma de pago (se oculta si es cuenta corriente) */}
             {!esCtaCte && (
               <>
                 <Form.Group className="mb-3">
-                  <Form.Label>
-                    Forma de Pago <span className="text-danger">*</span>
-                  </Form.Label>
+                  <Form.Label>Forma de Pago <span className="text-danger">*</span></Form.Label>
                   <Form.Select
                     value={formaPago}
                     onChange={(e) => setFormaPago(e.target.value as FormaPago)}
@@ -414,8 +430,7 @@ const RegistrarVenta: React.FC = () => {
                       <InputGroup.Text>%</InputGroup.Text>
                     </InputGroup>
                     <Form.Text className="text-muted">
-                      Interés actual: {interesPorcentaje}% ($
-                      {calcularInteres().toFixed(2)})
+                      Interés actual: {interesPorcentaje}% (${calcularInteres().toFixed(2)})
                     </Form.Text>
                   </Form.Group>
                 )}
@@ -426,59 +441,93 @@ const RegistrarVenta: React.FC = () => {
               <Alert variant="info" className="mt-2 mb-3">
                 <small>
                   ℹ️ Esta venta quedará registrada como <strong>Pendiente</strong>.
-                  La forma de pago y el interés se definirán al momento de
-                  cancelar la deuda en Cuentas Corrientes.
                 </small>
               </Alert>
             )}
 
-            {/* Formulario de escaneo */}
-            <Form onSubmit={agregarProducto}>
-              <Form.Group className="mb-3">
-                <Form.Label>Escanear Código de Barras</Form.Label>
-                <InputGroup>
-                  <InputGroup.Text>
-                    <UpcScan />
-                  </InputGroup.Text>
-                  <Form.Control
-                    type="text"
-                    placeholder={
-                      isLoading 
-                        ? "Cargando catálogo..." 
-                        : "Escanea o ingresa el código..."
-                    }
-                    value={codigoBarras}
-                    onChange={(e) => setCodigoBarras(e.target.value)}
-                    autoFocus
-                    disabled={isLoading} 
-                  />
-                  <Button variant="primary" type="submit" disabled={isLoading}>
-                    Agregar
-                  </Button>
-                </InputGroup>
-                <Form.Text className="text-muted">
-                  Enfoca este campo y escanea el código de barras con el lector
-                </Form.Text>
-              </Form.Group>
-            </Form>
+            {/* *** CAMBIO CLAVE: Envolvemos el form en un DIV que tiene el REF *** */}
+            <div ref={searchWrapperRef} style={{ position: "relative" }}>
+              <Form onSubmit={handleSubmit}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Buscar Producto (Escáner o Nombre)</Form.Label>
+                  <InputGroup>
+                    <InputGroup.Text>
+                      {codigoBarras.length > 0 && isNaN(Number(codigoBarras)) ? <Search/> : <UpcScan />}
+                    </InputGroup.Text>
+                    <Form.Control
+                      type="text"
+                      placeholder={isLoading ? "Cargando catálogo..." : "Escanea código o escribe nombre (ej: Granola)..."}
+                      value={codigoBarras}
+                      onChange={handleInputChange} 
+                      autoFocus
+                      disabled={isLoading}
+                      autoComplete="off" 
+                    />
+                    <Button variant="primary" type="submit" disabled={isLoading}>
+                      Agregar
+                    </Button>
+                  </InputGroup>
+                  <Form.Text className="text-muted">
+                    Si usas lector, presiona el gatillo. Si buscas por nombre, escribe y selecciona de la lista.
+                  </Form.Text>
+
+                  {/* LISTA FLOTANTE DE SUGERENCIAS */}
+                  {mostrarSugerencias && sugerencias.length > 0 && (
+                    <ListGroup 
+                      style={{ 
+                        position: "absolute", 
+                        top: "100%", 
+                        left: 0, 
+                        right: 0, 
+                        zIndex: 1050, 
+                        maxHeight: "200px", 
+                        overflowY: "auto",
+                        boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                      }}
+                    >
+                      {sugerencias.map((art) => (
+                        <ListGroup.Item 
+                          key={art.id} 
+                          action 
+                          onClick={() => procesarAgregadoDeArticulo(art)}
+                          className="d-flex justify-content-between align-items-center"
+                        >
+                          <div>
+                            <strong>{art.nombre}</strong>
+                            <div className="text-muted small" style={{fontSize: '0.85em'}}>
+                               {art.marca ? `${art.marca} - ` : ''} {art.codigoBarras}
+                            </div>
+                          </div>
+                          <div className="text-end">
+                            <Badge bg={art.stock > 0 ? "success" : "danger"} pill>
+                              Stock: {art.stock}
+                            </Badge>
+                            <div className="fw-bold text-primary mt-1">
+                              ${art.precio.toFixed(2)}
+                            </div>
+                          </div>
+                        </ListGroup.Item>
+                      ))}
+                    </ListGroup>
+                  )}
+                </Form.Group>
+              </Form>
+            </div>
+
           </Card.Body>
         </Card>
 
-        {/* Lista de productos en la venta */}
         {itemsVenta.length > 0 && (
           <Card className="shadow-sm">
             <Card.Header className="d-flex justify-content-between align-items-center">
               <h6 className="mb-0">Productos en la Venta</h6>
               <Badge bg="primary">
-                {itemsVenta.length} producto
-                {itemsVenta.length !== 1 ? "s" : ""}
+                {itemsVenta.length} producto{itemsVenta.length !== 1 ? "s" : ""}
               </Badge>
             </Card.Header>
             <Card.Body>
               <Table striped bordered hover responsive>
-                <thead
-                  style={{ backgroundColor: "#8f3d38", color: "white" }}
-                >
+                <thead style={{ backgroundColor: "#8f3d38", color: "white" }}>
                   <tr>
                     <th>Producto</th>
                     <th>Precio Unit.</th>
@@ -496,12 +545,7 @@ const RegistrarVenta: React.FC = () => {
                         <InputGroup size="sm">
                           <Button
                             variant="outline-secondary"
-                            onClick={() =>
-                              actualizarCantidad(
-                                item.articulo.id,
-                                item.cantidad - 1,
-                              )
-                            }
+                            onClick={() => actualizarCantidad(item.articulo.id, item.cantidad - 1)}
                           >
                             −
                           </Button>
@@ -519,20 +563,12 @@ const RegistrarVenta: React.FC = () => {
                           />
                           <Button
                             variant="outline-secondary"
-                            onClick={() =>
-                              actualizarCantidad(
-                                item.articulo.id,
-                                item.cantidad + 1,
-                              )
-                            }
+                            onClick={() => actualizarCantidad(item.articulo.id, item.cantidad + 1)}
                             disabled={item.cantidad >= item.articulo.stock}
                           >
                             +
                           </Button>
                         </InputGroup>
-                        <small className="text-muted d-block text-center mt-1">
-                          Stock: {item.articulo.stock}
-                        </small>
                       </td>
                       <td>${item.subtotal.toFixed(2)}</td>
                       <td className="text-center">
@@ -546,137 +582,72 @@ const RegistrarVenta: React.FC = () => {
                       </td>
                     </tr>
                   ))}
-                  <tr
-                    style={{
-                      backgroundColor: "#f8f9fa",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    <td colSpan={3} className="text-end">
-                      SUBTOTAL:
-                    </td>
+                  <tr style={{ backgroundColor: "#f8f9fa", fontWeight: "bold" }}>
+                    <td colSpan={3} className="text-end">SUBTOTAL:</td>
                     <td>${calcularTotal().toFixed(2)}</td>
                     <td></td>
                   </tr>
                   {!esCtaCte && formaPago === "credito" && calcularInteres() > 0 && (
                     <tr style={{ backgroundColor: "#fff3cd" }}>
-                      <td colSpan={3} className="text-end">
-                        INTERÉS ({interesPorcentaje}%):
-                      </td>
+                      <td colSpan={3} className="text-end">INTERÉS ({interesPorcentaje}%):</td>
                       <td>${calcularInteres().toFixed(2)}</td>
                       <td></td>
                     </tr>
                   )}
-                  <tr
-                    style={{
-                      backgroundColor: "#8f3d38",
-                      color: "white",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    <td colSpan={3} className="text-end">
-                      TOTAL A PAGAR:
-                    </td>
+                  <tr style={{ backgroundColor: "#8f3d38", color: "white", fontWeight: "bold" }}>
+                    <td colSpan={3} className="text-end">TOTAL A PAGAR:</td>
                     <td>${calcularTotalFinal().toFixed(2)}</td>
                     <td></td>
                   </tr>
                 </tbody>
               </Table>
 
-              {/* Botones de acción */}
               <div className="d-flex justify-content-end gap-2 mt-3">
-                <Button variant="secondary" onClick={cancelarVenta}>
-                  Cancelar Venta
-                </Button>
-                <Button variant="success" onClick={confirmarVenta}>
-                  Confirmar Venta
-                </Button>
+                <Button variant="secondary" onClick={cancelarVenta}>Cancelar Venta</Button>
+                <Button variant="success" onClick={confirmarVenta}>Confirmar Venta</Button>
               </div>
             </Card.Body>
           </Card>
         )}
 
-        {/* Modal de confirmación */}
         <Modal show={showModal} onHide={() => setShowModal(false)} centered>
-          <Modal.Header
-            closeButton
-            style={{ backgroundColor: "#8f3d38", color: "white" }}
-          >
+          <Modal.Header closeButton style={{ backgroundColor: "#8f3d38", color: "white" }}>
             <Modal.Title>Confirmar Venta</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <h5 className="mb-3">Resumen de la venta:</h5>
-            <p>
-              <strong>Cliente:</strong> {nombreCliente || "Cliente General"}
-            </p>
+            <p><strong>Cliente:</strong> {nombreCliente || "Cliente General"}</p>
             {esCtaCte ? (
-              <>
-                <Alert variant="warning">
-                  <strong>⚠️ CUENTA CORRIENTE - Pago Pendiente</strong>
-                </Alert>
-              </>
+              <Alert variant="warning"><strong>⚠️ CUENTA CORRIENTE - Pago Pendiente</strong></Alert>
             ) : (
-              <p>
-                <strong>Forma de Pago:</strong>{" "}
-                {formaPago.charAt(0).toUpperCase() + formaPago.slice(1)}
-              </p>
+              <p><strong>Forma de Pago:</strong> {formaPago.charAt(0).toUpperCase() + formaPago.slice(1)}</p>
             )}
             <ul>
               {itemsVenta.map((item) => (
                 <li key={item.articulo.id}>
-                  {item.articulo.nombre} x {item.cantidad} = $
-                  {item.subtotal.toFixed(2)}
+                  {item.articulo.nombre} x {item.cantidad} = ${item.subtotal.toFixed(2)}
                 </li>
               ))}
             </ul>
             <hr />
             <div className="d-flex justify-content-between">
-              <span>Subtotal:</span>
-              <strong>${calcularTotal().toFixed(2)}</strong>
+              <span>Subtotal:</span><strong>${calcularTotal().toFixed(2)}</strong>
             </div>
             {!esCtaCte && formaPago === "credito" && calcularInteres() > 0 && (
               <div className="d-flex justify-content-between text-warning">
-                <span>Interés ({interesPorcentaje}%):</span>
-                <strong>${calcularInteres().toFixed(2)}</strong>
+                <span>Interés ({interesPorcentaje}%):</span><strong>${calcularInteres().toFixed(2)}</strong>
               </div>
             )}
             <hr />
-            <h4 className="text-end">
-              Total {esCtaCte ? "Pendiente" : "a Pagar"}: $
-              {calcularTotalFinal().toFixed(2)}
-            </h4>
-            <p className="text-muted mt-3">
-              ¿Deseas confirmar esta venta
-              {esCtaCte ? " en cuenta corriente" : ""}?
-            </p>
-            {/* Mostrar error de API dentro del modal si ocurre al confirmar */}
+            <h4 className="text-end">Total {esCtaCte ? "Pendiente" : "a Pagar"}: ${calcularTotalFinal().toFixed(2)}</h4>
             {error && isSubmitting && (
-               <Alert variant="danger" className="mt-3">
-                 {error}
-               </Alert>
+               <Alert variant="danger" className="mt-3">{error}</Alert>
             )}
           </Modal.Body>
           <Modal.Footer>
-            <Button
-              variant="secondary"
-              onClick={() => setShowModal(false)}
-              disabled={isSubmitting}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="success"
-              onClick={procesarVenta}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
-                  {' '}Procesando...
-                </>
-              ) : (
-                "Confirmar y Procesar"
-              )}
+            <Button variant="secondary" onClick={() => setShowModal(false)} disabled={isSubmitting}>Cancelar</Button>
+            <Button variant="success" onClick={procesarVenta} disabled={isSubmitting}>
+              {isSubmitting ? <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" /> Procesando...</> : "Confirmar y Procesar"}
             </Button>
           </Modal.Footer>
         </Modal>
@@ -686,4 +657,3 @@ const RegistrarVenta: React.FC = () => {
 };
 
 export default RegistrarVenta;
-

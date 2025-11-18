@@ -10,14 +10,14 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-  OneToMany, // <-- Importar OneToMany
+  OneToMany, // <-- 
 } from 'typeorm';
-// Importamos las otras entidades que dependen de Articulo
+// 
 
 
 @Entity({ name: 'articulos' })
 export class Articulo {
-  @PrimaryGeneratedColumn() // <-- CAMBIO: Quitado "type: 'bigint'" y "unsigned"
+  @PrimaryGeneratedColumn() // 
   id: number;
 
   @Column({ type: 'varchar', length: 255 })
@@ -26,7 +26,7 @@ export class Articulo {
   @Column({ name: 'codigo_barras', type: 'varchar', length: 50, unique: true })
   codigo_barras: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 }) // <-- CAMBIO: Quitado "unsigned"
+  @Column({ type: 'decimal', precision: 10, scale: 2 }) // 
   precio: number;
 
   @Column({ type: 'int', default: 0 })
@@ -36,7 +36,7 @@ export class Articulo {
   stock_minimo: number;
 
   // --- Relación con Categoría ---
-  @Column({ name: 'categoria_id', type: 'integer', nullable: true }) // <-- CAMBIO: 'bigint' a 'integer' y quitado "unsigned"
+  @Column({ name: 'categoria_id', type: 'integer', nullable: true }) // 
   categoriaId: number | null;
 
   @ManyToOne(() => Categoria, {
@@ -45,10 +45,10 @@ export class Articulo {
     onDelete: 'SET NULL',
   })
   @JoinColumn({ name: 'categoria_id' })
-  categoria: Categoria | null; // <-- CORREGIDO: Acepta null
+  categoria: Categoria | null; // 
 
   // --- Relación con Marca ---
-  @Column({ name: 'marca_id', type: 'integer', nullable: true }) // <-- CAMBIO: 'bigint' a 'integer' y quitado "unsigned"
+  @Column({ name: 'marca_id', type: 'integer', nullable: true }) // 
   marcaId: number | null;
 
   @ManyToOne(() => Marca, {
@@ -57,15 +57,15 @@ export class Articulo {
     onDelete: 'SET NULL',
   })
   @JoinColumn({ name: 'marca_id' })
-  marca: Marca | null; // <-- CORREGIDO: Acepta null
+  marca: Marca | null; // 
 
   @Column({ type: 'boolean', default: true })
   activo: boolean;
 
-  @CreateDateColumn({ name: 'created_at' }) // <-- CAMBIO: Quitado "type: 'datetime'"
+  @CreateDateColumn({ name: 'created_at' }) // <-- 
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' }) // <-- CAMBIO: Quitado "type: 'datetime'"
+  @UpdateDateColumn({ name: 'updated_at' }) // <-- 
   updatedAt: Date;
 
   // --- Relaciones Inversas (para que TypeORM sepa de ellas) ---

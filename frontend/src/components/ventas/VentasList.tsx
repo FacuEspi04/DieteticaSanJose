@@ -18,11 +18,11 @@ import {
   CheckCircle,
   Trash,
   BoxArrowRight,
-  FileEarmarkPdf, // <-- 1. AÑADIDO: Ícono para Retiro
+  FileEarmarkPdf, 
 } from 'react-bootstrap-icons';
 import { useNavigate } from 'react-router-dom';
 import logo from '../../assets/dietSanJose.png';
-// --- 2. AÑADIDO: Importar servicios y tipos de Retiro ---
+
 import {
   type Venta,
   getVentasPorFecha,
@@ -39,7 +39,7 @@ import autoTable from 'jspdf-autotable';
 const VentasList: React.FC = () => {
   const navigate = useNavigate();
   const [ventas, setVentas] = useState<Venta[]>([]);
-  const [retiros, setRetiros] = useState<Retiro[]>([]); // <-- 3. AÑADIDO: Estado para Retiros
+  const [retiros, setRetiros] = useState<Retiro[]>([]); 
   const [fechaSeleccionada, setFechaSeleccionada] = useState<string>('');
 
   const [ventaAEliminar, setVentaAEliminar] = useState<Venta | null>(null);
@@ -50,7 +50,7 @@ const VentasList: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null);
-  // FUNCIÓN CORREGIDA PARA MANEJAR ZONA HORARIA ---
+  // Función para manejar zona horaria-
   const getTodayString = () => {
   const hoy = new Date();
   const year = hoy.getFullYear();
@@ -59,7 +59,6 @@ const VentasList: React.FC = () => {
   return `${year}-${month}-${day}`;
 }
   useEffect(() => {
-    // const hoy = new Date().toISOString().split('T')[0]; // <-- ESTO CAUSA EL BUG DE ZONA HORARIA
     setFechaSeleccionada(getTodayString()); // <-- CORREGIDO
   }, []);
 
@@ -366,6 +365,102 @@ const handleDownloadPDF = () => {
 
 };
 
+// NUEVA FUNCIÓN PDF PARA TURNO MAÑANA //
+
+const handleDownloadPDFMañana = () => {
+  // Evitar descargar si no hay datos
+  if (isLoading || (ventasMañana.length === 0 && retirosMañana.length === 0)) return;
+
+  const doc = new jsPDF();
+  const fechaFormateada = formatearFecha(fechaSeleccionada);
+  const margin = 14;
+  
+  // Título
+  doc.setFontSize(18);
+  doc.text(`Resumen de Caja - TURNO MAÑANA - ${fechaFormateada}`, margin, 22);
+  doc.setFontSize(11);
+  doc.setTextColor(100);
+  doc.text(`Generado el ${formatearFecha(new Date())} a las ${formatearHora(new Date())}`, margin, 28);
+  
+  // --- Sección 1: Totales Generales (Solo Mañana) ---
+  doc.setFontSize(14);
+  doc.setTextColor(0);
+  doc.text("Totales Generales (Turno Mañana)", margin, 42);
+  
+  autoTable(doc, {
+    startY: 46,
+    head: [['Concepto', 'Monto']],
+    body: [
+      ['Total Ventas', `$${totalVentasMañana.toFixed(2)}`],
+      ['Total Retiros', `-$${totalRetirosMañana.toFixed(2)}`],
+      ['NETO EN CAJA', `$${netoMañana.toFixed(2)}`],
+    ],
+    theme: 'striped',
+    headStyles: { fillColor: [143, 61, 56] },
+    bodyStyles: { fontStyle: 'bold' },
+    styles: { halign: 'center' },
+    margin: { left: margin },
+  });
+
+  // --- Sección 2: Totales por Forma de Pago (Solo Mañana) ---
+  const finalY1 = (doc as any).lastAutoTable.finalY + 12;
+  doc.setFontSize(14);
+  doc.text("Ventas por Forma de Pago (Turno Mañana)", margin, finalY1);
+  
+  autoTable(doc, {
+    startY: finalY1 + 4,
+    head: [['Forma de Pago', 'Monto']],
+    body: [
+      ['Efectivo', `$${totalesMañana.efectivo.toFixed(2)}`],
+      ['Débito', `$${totalesMañana.debito.toFixed(2)}`],
+      ['Crédito', `$${totalesMañana.credito.toFixed(2)}`],
+      ['Transferencia', `$${totalesMañana.transferencia.toFixed(2)}`],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [45, 68, 84] },
+  });
+
+  // --- Sección 3: Detalle de Ventas (Solo Mañana) ---
+  if (ventasMañana.length > 0) {
+    const finalY2 = (doc as any).lastAutoTable.finalY + 12;
+    doc.setFontSize(14);
+    doc.text("Detalle de Ventas (Turno Mañana)", margin, finalY2);
+    
+    autoTable(doc, {
+      startY: finalY2 + 4,
+      head: [['Hora', 'Cliente', 'Forma Pago', 'Total', 'Estado']],
+      body: ventasMañana.map(v => [ // <-- Usamos ventasMañana
+        formatearHora(v.fechaHora),
+        v.clienteNombre,
+        formatearFormaPago(v.formaPago, v.estado),
+        `$${Number(v.total).toFixed(2)}`,
+        v.estado,
+      ]),
+      headStyles: { fillColor: [143, 61, 56] },
+    });
+  }
+
+  // --- Sección 4: Detalle de Retiros (Solo Mañana) ---
+  if (retirosMañana.length > 0) {
+    const finalY3 = (doc as any).lastAutoTable.finalY + 12;
+    doc.setFontSize(14);
+    doc.text("Detalle de Retiros (Turno Mañana)", margin, finalY3);
+    
+    autoTable(doc, {
+      startY: finalY3 + 4,
+      head: [['Hora', 'Motivo', 'Monto']],
+      body: retirosMañana.map(r => [ // <-- Usamos retirosMañana
+        formatearHora(r.fechaHora),
+        r.motivo,
+        `-$${Number(r.monto).toFixed(2)}`
+      ]),
+      headStyles: { fillColor: [220, 53, 69] },
+    });
+  }
+
+  doc.save(`resumen_caja_MAÑANA_${fechaSeleccionada}.pdf`);
+};
+
   return (
     <div>
       {/* ... Logo ... */}
@@ -384,14 +479,29 @@ const handleDownloadPDF = () => {
             <div className="d-flex gap-2">
               {/* ---Imprimir pdf resumen caja*/}
               <Button
-                variant="danger"
+                
                 size="sm"
                 onClick={handleDownloadPDF}
                 disabled={isLoading || (ventas.length === 0 && retiros.length === 0)}
+                title="Descargar caja día completo"
+                className='boton-marron'
               >
                 <FileEarmarkPdf className="me-1" />
-                Descargar PDF
+                PDF (Día Completo) 
               </Button>
+              
+              {/* AÑADIDO: Botón PDF Turno Mañana */}
+                <Button
+                  variant="outline-primary"
+                  size="sm"
+                  onClick={handleDownloadPDFMañana}
+                  disabled={isLoading || (ventasMañana.length === 0 && retirosMañana.length === 0)}
+                  title="Descargar caja turno mañana"
+                >
+                  <FileEarmarkPdf className="me-1" />
+                  PDF (Turno Mañana)
+                </Button>
+              
               {/* --- 8. AÑADIDO: Botón Nuevo Retiro --- */}
               <Button
                 variant="outline-danger"
