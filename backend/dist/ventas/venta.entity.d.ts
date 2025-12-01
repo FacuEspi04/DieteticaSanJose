@@ -26,6 +26,7 @@ export declare class Venta {
     subtotal: number;
     interes: number;
     total: number;
+    monto_pagado: number;
     formaPago: FormaPago | null;
     estado: VentaEstado;
     turno: TurnoVenta;

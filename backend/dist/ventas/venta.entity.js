@@ -42,6 +42,7 @@ let Venta = class Venta {
     subtotal;
     interes;
     total;
+    monto_pagado;
     formaPago;
     estado;
     turno;
@@ -93,6 +94,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 10, scale: 2 }),
     __metadata("design:type", Number)
 ], Venta.prototype, "total", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 10, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], Venta.prototype, "monto_pagado", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: 'varchar',

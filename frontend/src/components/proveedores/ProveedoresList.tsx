@@ -126,7 +126,7 @@ const ProveedoresList: React.FC = () => {
               size="sm"
               onClick={() => navigate("/proveedores/nuevo")}
             >
-              <PlusCircle className="me-1" />
+              <PlusCircle className="me-1" /> 
               Agregar Proveedor
             </Button>
           </div>

@@ -16,6 +16,7 @@ exports.VentasController = void 0;
 const common_1 = require("@nestjs/common");
 const ventas_service_1 = require("./ventas.service");
 const venta_dto_1 = require("./dto/venta.dto");
+const pagar_cuenta_dto_1 = require("./dto/pagar-cuenta.dto");
 let VentasController = class VentasController {
     ventasService;
     constructor(ventasService) {
@@ -35,6 +36,9 @@ let VentasController = class VentasController {
     }
     registrarPago(id, registrarPagoDto) {
         return this.ventasService.registrarPago(id, registrarPagoDto);
+    }
+    registrarPagoCuenta(pagarCuentaDto) {
+        return this.ventasService.pagarCuentaCorriente(pagarCuentaDto);
     }
     async deleteAll() {
         return this.ventasService.deleteAll();
@@ -80,6 +84,13 @@ __decorate([
     __metadata("design:paramtypes", [Number, venta_dto_1.RegistrarPagoDto]),
     __metadata("design:returntype", void 0)
 ], VentasController.prototype, "registrarPago", null);
+__decorate([
+    (0, common_1.Post)('pagar-cuenta'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [pagar_cuenta_dto_1.PagarCuentaDto]),
+    __metadata("design:returntype", void 0)
+], VentasController.prototype, "registrarPagoCuenta", null);
 __decorate([
     (0, common_1.Delete)('limpiar-datos-prueba'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),

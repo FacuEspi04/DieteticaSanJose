@@ -350,7 +350,7 @@ const RegistrarVenta: React.FC = () => {
         <img
           src={logo}
           alt="Dietética San José"
-          style={{ height: "60px", objectFit: "contain" }}
+          style={{ height: "80px", objectFit: "contain" }}
         />
       </div>
 

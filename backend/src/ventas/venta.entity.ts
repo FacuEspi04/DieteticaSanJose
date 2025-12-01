@@ -68,6 +68,9 @@ export class Venta {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   total: number;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  monto_pagado: number;
+
   @Column({
     type: 'varchar', // <-- CORRECTO para SQLite
     enum: FormaPago,

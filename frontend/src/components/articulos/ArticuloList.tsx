@@ -96,7 +96,9 @@ const ArticuloList: React.FC = () => {
           articulo.nombre.toLowerCase().includes(terminoBusqueda)) ||
         // Ahora buscamos en el objeto 'marca'
         (articulo.marca &&
-          articulo.marca.nombre.toLowerCase().includes(terminoBusqueda))
+          articulo.marca.nombre.toLowerCase().includes(terminoBusqueda)) ||
+        (articulo.categoria &&
+          articulo.categoria.nombre.toLowerCase().includes(terminoBusqueda)) 
       );
     });
   }, [articulos, busqueda]);
@@ -186,7 +188,7 @@ const ArticuloList: React.FC = () => {
               </InputGroup.Text>
               <Form.Control
                 type="text"
-                placeholder="Buscar por código, nombre o marca..."
+                placeholder="Buscar por código, nombre, marca o categoría..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
                 autoFocus
@@ -227,17 +229,9 @@ const ArticuloList: React.FC = () => {
                         <code>{articulo.codigo_barras}</code>
                       </td>
                       <td>{articulo.nombre}</td>
-                      
-                      {/* --- ESTA ES LA LÍNEA CORREGIDA --- */}
                       <td>
-                        {/* Verificamos si 'articulo.marca' existe (no es null)
-                          Si existe, mostramos 'articulo.marca.nombre'
-                          Si no, mostramos 'N/A'
-                        */}
                         {articulo.marca ? articulo.marca.nombre : <small className="text-muted">N/A</small>}
                       </td>
-                      {/* --- FIN DE LA CORRECCIÓN --- */}
-                      
                       <td>
                         {articulo.stock <= articulo.stock_minimo ? (
                           <Badge bg="danger">{articulo.stock}</Badge>

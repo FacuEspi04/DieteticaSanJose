@@ -67,12 +67,5 @@ export class RegistrarPagoDto {
   interes?: number;
 }
 
-// --- DTO para anular una venta ---
-// (Eliminado según tu solicitud de solo usar "delete")
-// export class AnularVentaDto {
-//   @IsString()
-//   @IsNotEmpty()
-//   @IsOptional()
-//   motivoAnulacion?: string;
-// }
+
 

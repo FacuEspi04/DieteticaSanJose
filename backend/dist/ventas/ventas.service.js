@@ -83,6 +83,7 @@ let VentasService = VentasService_1 = class VentasService {
             nuevaVenta.subtotal = subtotalVenta;
             nuevaVenta.interes = interesCalculado;
             nuevaVenta.total = totalVenta;
+            nuevaVenta.monto_pagado = estado === venta_entity_1.VentaEstado.COMPLETADA ? totalVenta : 0;
             nuevaVenta.formaPago =
                 estado === venta_entity_1.VentaEstado.COMPLETADA ? formaPago : null;
             nuevaVenta.estado = estado;
@@ -135,6 +136,93 @@ let VentasService = VentasService_1 = class VentasService {
         }
         return venta;
     }
+    async pagarCuentaCorriente(dto) {
+        const { clienteNombre, monto, formaPago, fecha } = dto;
+        let dineroDisponible = Number(monto);
+        const queryRunner = this.dataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
+        try {
+            let fechaPago = new Date();
+            if (fecha) {
+                const [year, month, day] = fecha.split('-').map(Number);
+                const hoy = new Date();
+                const esMismoDia = hoy.getFullYear() === year &&
+                    (hoy.getMonth() + 1) === month &&
+                    hoy.getDate() === day;
+                if (!esMismoDia) {
+                    fechaPago = new Date(year, month - 1, day, 12, 0, 0);
+                }
+            }
+            const [maxResult] = await queryRunner.manager.query('SELECT MAX("numeroVenta") as maxNum FROM ventas');
+            const siguienteNumeroVenta = (Number(maxResult?.maxNum) || 0) + 1;
+            const reciboVenta = new venta_entity_1.Venta();
+            reciboVenta.numeroVenta = siguienteNumeroVenta;
+            reciboVenta.fechaHora = fechaPago;
+            reciboVenta.clienteNombre = clienteNombre;
+            reciboVenta.clienteId = null;
+            reciboVenta.subtotal = dineroDisponible;
+            reciboVenta.interes = 0;
+            reciboVenta.total = dineroDisponible;
+            reciboVenta.monto_pagado = dineroDisponible;
+            reciboVenta.formaPago = formaPago;
+            reciboVenta.estado = venta_entity_1.VentaEstado.COMPLETADA;
+            reciboVenta.turno = (0, turnos_util_1.determinarTurno)(fechaPago);
+            await queryRunner.manager.save(venta_entity_1.Venta, reciboVenta);
+            const detalleRecibo = new venta_detalle_entity_1.VentaDetalle();
+            detalleRecibo.venta = reciboVenta;
+            detalleRecibo.cantidad = 1;
+            detalleRecibo.precioUnitario = dineroDisponible;
+            detalleRecibo.subtotal = dineroDisponible;
+            if (reciboVenta.id) {
+            }
+            const ventasPendientes = await queryRunner.manager.find(venta_entity_1.Venta, {
+                where: {
+                    clienteNombre: clienteNombre,
+                    estado: venta_entity_1.VentaEstado.PENDIENTE,
+                },
+                order: {
+                    fechaHora: 'ASC',
+                },
+            });
+            let saldoParaCancelar = Number(monto);
+            const ventasActualizadas = [];
+            for (const venta of ventasPendientes) {
+                if (saldoParaCancelar <= 0.01)
+                    break;
+                const totalVenta = Number(venta.total);
+                const pagadoPrevio = Number(venta.monto_pagado);
+                const deudaRestante = totalVenta - pagadoPrevio;
+                if (saldoParaCancelar >= deudaRestante) {
+                    venta.monto_pagado = totalVenta;
+                    venta.estado = venta_entity_1.VentaEstado.COMPLETADA;
+                    saldoParaCancelar -= deudaRestante;
+                }
+                else {
+                    venta.monto_pagado = pagadoPrevio + saldoParaCancelar;
+                    venta.estado = venta_entity_1.VentaEstado.PENDIENTE;
+                    saldoParaCancelar = 0;
+                }
+                ventasActualizadas.push(venta);
+            }
+            await queryRunner.manager.save(venta_entity_1.Venta, ventasActualizadas);
+            await queryRunner.commitTransaction();
+            this.logger.log(`Pago registrado para ${clienteNombre}. Recibo #${siguienteNumeroVenta}`);
+            return {
+                message: 'Pago registrado correctamente',
+                ventasAfectadas: ventasActualizadas.length,
+                reciboGenerado: siguienteNumeroVenta
+            };
+        }
+        catch (err) {
+            await queryRunner.rollbackTransaction();
+            this.logger.error(`Error al registrar pago cuenta corriente: ${err.message}`);
+            throw err;
+        }
+        finally {
+            await queryRunner.release();
+        }
+    }
     async registrarPago(id, registrarPagoDto) {
         const { formaPago, interes } = registrarPagoDto;
         const venta = await this.ventaRepository.findOneBy({ id });
@@ -146,14 +234,15 @@ let VentasService = VentasService_1 = class VentasService {
         }
         const ahora = new Date();
         const interesCalculado = interes || 0;
-        const totalActualizado = venta.subtotal + interesCalculado;
+        const totalActualizado = Number(venta.subtotal) + interesCalculado;
         venta.estado = venta_entity_1.VentaEstado.COMPLETADA;
         venta.formaPago = formaPago;
         venta.interes = interesCalculado;
         venta.total = totalActualizado;
+        venta.monto_pagado = totalActualizado;
         venta.fechaHora = ahora;
         venta.turno = (0, turnos_util_1.determinarTurno)(ahora);
-        this.logger.log(`Pago registrado para Venta #${venta.numeroVenta}. Nuevo estado: ${venta.estado}`);
+        this.logger.log(`Pago total registrado para Venta #${venta.numeroVenta}.`);
         return this.ventaRepository.save(venta);
     }
     async delete(id) {
@@ -205,7 +294,6 @@ let VentasService = VentasService_1 = class VentasService {
                     venta.estado === venta_entity_1.VentaEstado.PENDIENTE) {
                     for (const item of venta.items) {
                         await queryRunner.manager.increment(articulo_entity_1.Articulo, { id: item.articuloId }, 'stock', item.cantidad);
-                        this.logger.log(`Stock restaurado: ${item.cantidad} a Artículo ID #${item.articuloId}`);
                     }
                 }
             }

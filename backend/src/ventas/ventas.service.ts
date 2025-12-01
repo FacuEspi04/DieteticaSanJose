@@ -7,11 +7,10 @@ import {
   DataSource,
   Repository,
   FindOptionsWhere,
-  LessThanOrEqual,
-  MoreThanOrEqual,
   Between,
 } from 'typeorm';
 import { CreateVentaDto, RegistrarPagoDto } from './dto/venta.dto';
+import { PagarCuentaDto } from './dto/pagar-cuenta.dto'; 
 import { VentaDetalle } from './venta-detalle.entity';
 import { Venta, VentaEstado } from './venta.entity';
 
@@ -31,10 +30,6 @@ export class VentasService {
     private readonly dataSource: DataSource,
   ) {}
 
-  /**
-   * Crea una nueva venta. Esta es una operación transaccional.
-   * Descuenta el stock de los artículos.
-   */
   async create(createVentaDto: CreateVentaDto): Promise<Venta> {
     const { clienteId, clienteNombre, items, formaPago, interes, estado } =
       createVentaDto;
@@ -49,13 +44,9 @@ export class VentasService {
       const detallesVenta: VentaDetalle[] = [];
 
       // 1. OBTENER EL SIGUIENTE NUMERO DE VENTA
-      // CAMBIO: Quitado "FOR UPDATE" (no es compatible con SQLite en un MAX).
-      // La transacción en SQLite bloquea el archivo, lo que previene "race conditions".
-      // CAMBIO: Añadidas comillas dobles a "numeroVenta"
       const [maxResult] = await queryRunner.manager.query(
         'SELECT MAX("numeroVenta") as maxNum FROM ventas',
       );
-      // Corregido: Forzar conversión a Número
       const siguienteNumeroVenta = (Number(maxResult?.maxNum) || 0) + 1;
 
       // 2. Validar cliente
@@ -67,11 +58,8 @@ export class VentasService {
 
       // 3. Procesar artículos y descontar stock
       for (const itemDto of items) {
-        // CAMBIO: Quitado el lock "pessimistic_write" (no soportado por SQLite).
-        // La transacción ya está bloqueando la base de datos.
         const articulo = await queryRunner.manager.findOne(Articulo, {
           where: { id: itemDto.articuloId },
-          // lock: { mode: 'pessimistic_write' },  <-- CAMBIO: LÍNEA ELIMINADA
         });
 
         if (!articulo) {
@@ -114,16 +102,22 @@ export class VentasService {
       nuevaVenta.subtotal = subtotalVenta;
       nuevaVenta.interes = interesCalculado;
       nuevaVenta.total = totalVenta;
+      
+      // --- NUEVO: Inicializar monto_pagado ---
+      // Si la venta nace Completada, está pagada al 100%. Si es Pendiente, pagado es 0.
+      nuevaVenta.monto_pagado = estado === VentaEstado.COMPLETADA ? totalVenta : 0;
+      // ---------------------------------------
+
       nuevaVenta.formaPago =
         estado === VentaEstado.COMPLETADA ? formaPago : null;
       nuevaVenta.estado = estado;
-      nuevaVenta.turno = determinarTurno(ahora); // Usamos la utilidad importada
+      nuevaVenta.turno = determinarTurno(ahora);
 
       const ventaGuardada = await queryRunner.manager.save(Venta, nuevaVenta);
 
       // 6. Asignar la VENTA completa al detalle y guardarlos
       for (const detalle of detallesVenta) {
-        detalle.venta = ventaGuardada; // Corregido: Asignar el objeto
+        detalle.venta = ventaGuardada;
         await queryRunner.manager.save(VentaDetalle, detalle);
       }
 
@@ -131,7 +125,7 @@ export class VentasService {
       await queryRunner.commitTransaction();
 
       this.logger.log(`Venta #${ventaGuardada.numeroVenta} creada exitosamente.`);
-      return this.findOne(ventaGuardada.id); // Devolver con relaciones
+      return this.findOne(ventaGuardada.id);
     } catch (err) {
       this.logger.error(`Error al crear la venta: ${err.message}`);
       await queryRunner.rollbackTransaction();
@@ -148,9 +142,8 @@ export class VentasService {
     const where: FindOptionsWhere<Venta> | FindOptionsWhere<Venta>[] = {};
 
     if (fecha) {
-      // Corregido: Filtro de zona horaria
-      const fechaInicio = new Date(`${fecha}T00:00:00`); // Local
-      const fechaFin = new Date(`${fecha}T23:59:59`); // Local
+      const fechaInicio = new Date(`${fecha}T00:00:00`);
+      const fechaFin = new Date(`${fecha}T23:59:59`);
       where.fechaHora = Between(fechaInicio, fechaFin);
     }
 
@@ -186,8 +179,145 @@ export class VentasService {
     return venta;
   }
 
+  async pagarCuentaCorriente(dto: PagarCuentaDto) {
+    const { clienteNombre, monto, formaPago, fecha } = dto as any; 
+    let dineroDisponible = Number(monto);
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // ---------------------------------------------------------
+      // PASO 1: CREAR EL "RECIBO" (La venta que representa el ingreso HOY)
+      // ---------------------------------------------------------
+      
+      // 1. Inicializamos con la fecha/hora ACTUAL (HOY AHORA)
+      let fechaPago = new Date(); 
+
+      if (fecha) {
+        // Parseamos la fecha que viene del front: "2025-11-25"
+        const [year, month, day] = fecha.split('-').map(Number);
+        
+        // Comparamos con la fecha actual del sistema
+        const hoy = new Date();
+        const esMismoDia = 
+            hoy.getFullYear() === year && 
+            (hoy.getMonth() + 1) === month && 
+            hoy.getDate() === day;
+
+        // Si la fecha elegida NO es hoy (es decir, es un pago retroactivo de otro día),
+        // fijamos esa fecha a las 12:00 del mediodía para evitar problemas de Timezone
+        // y asegurar que caiga en ese día específico.
+        if (!esMismoDia) {
+             fechaPago = new Date(year, month - 1, day, 12, 0, 0);
+        }
+        // NOTA: Si esMismoDia es true, no hacemos nada, por lo que fechaPago sigue
+        // siendo new Date() con la HORA EXACTA actual.
+      }
+
+      // Obtener número de venta para el recibo
+      const [maxResult] = await queryRunner.manager.query(
+        'SELECT MAX("numeroVenta") as maxNum FROM ventas',
+      );
+      const siguienteNumeroVenta = (Number(maxResult?.maxNum) || 0) + 1;
+
+      const reciboVenta = new Venta();
+      reciboVenta.numeroVenta = siguienteNumeroVenta;
+      reciboVenta.fechaHora = fechaPago; // Aquí va la fecha calculada
+      reciboVenta.clienteNombre = clienteNombre;
+      reciboVenta.clienteId = null; 
+      reciboVenta.subtotal = dineroDisponible;
+      reciboVenta.interes = 0;
+      reciboVenta.total = dineroDisponible;
+      reciboVenta.monto_pagado = dineroDisponible;
+      
+      // AQUÍ ES DONDE REGISTRAMOS LA FORMA DE PAGO (Efectivo/Débito) PARA LA CAJA
+      reciboVenta.formaPago = formaPago; 
+      
+      reciboVenta.estado = VentaEstado.COMPLETADA;
+      reciboVenta.turno = determinarTurno(fechaPago);
+      
+      // Guardamos el recibo
+      await queryRunner.manager.save(Venta, reciboVenta);
+
+      // (Opcional) Crear un detalle dummy para este recibo
+      const detalleRecibo = new VentaDetalle();
+      detalleRecibo.venta = reciboVenta;
+      detalleRecibo.cantidad = 1;
+      detalleRecibo.precioUnitario = dineroDisponible;
+      detalleRecibo.subtotal = dineroDisponible;
+      
+      if (reciboVenta.id) {
+          // await queryRunner.manager.save(VentaDetalle, detalleRecibo);
+      }
+      
+      // ---------------------------------------------------------
+      // PASO 2: CANCELAR LA DEUDA DE LAS VENTAS VIEJAS
+      // ---------------------------------------------------------
+
+      const ventasPendientes = await queryRunner.manager.find(Venta, {
+        where: {
+          clienteNombre: clienteNombre,
+          estado: VentaEstado.PENDIENTE,
+        },
+        order: {
+          fechaHora: 'ASC', // FIFO
+        },
+      });
+
+      let saldoParaCancelar = Number(monto);
+      const ventasActualizadas: Venta[] = [];
+
+      for (const venta of ventasPendientes) {
+        if (saldoParaCancelar <= 0.01) break;
+
+        const totalVenta = Number(venta.total);
+        const pagadoPrevio = Number(venta.monto_pagado);
+        const deudaRestante = totalVenta - pagadoPrevio;
+
+        if (saldoParaCancelar >= deudaRestante) {
+          // ALCANZA para pagar toda esta venta vieja
+          venta.monto_pagado = totalVenta;
+          venta.estado = VentaEstado.COMPLETADA;
+          
+          // IMPORTANTE: NO tocamos 'formaPago' de la venta vieja.
+          
+          saldoParaCancelar -= deudaRestante;
+        } else {
+          // NO ALCANZA, pago parcial
+          venta.monto_pagado = pagadoPrevio + saldoParaCancelar;
+          venta.estado = VentaEstado.PENDIENTE;
+          saldoParaCancelar = 0;
+        }
+
+        ventasActualizadas.push(venta);
+      }
+
+      // Guardar actualizaciones de deuda
+      await queryRunner.manager.save(Venta, ventasActualizadas);
+
+      await queryRunner.commitTransaction();
+
+      this.logger.log(`Pago registrado para ${clienteNombre}. Recibo #${siguienteNumeroVenta}`);
+
+      return {
+        message: 'Pago registrado correctamente',
+        ventasAfectadas: ventasActualizadas.length,
+        reciboGenerado: siguienteNumeroVenta
+      };
+
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Error al registrar pago cuenta corriente: ${err.message}`);
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
   /**
-   * Registra el pago de una venta pendiente (Cuenta Corriente).
+   * Registra el pago TOTAL de una venta específica (Método antiguo, mantenido por compatibilidad).
    */
   async registrarPago(
     id: number,
@@ -206,24 +336,28 @@ export class VentasService {
 
     const ahora = new Date();
     const interesCalculado = interes || 0;
-    const totalActualizado = venta.subtotal + interesCalculado;
+    const totalActualizado = Number(venta.subtotal) + interesCalculado;
 
     venta.estado = VentaEstado.COMPLETADA;
     venta.formaPago = formaPago;
     venta.interes = interesCalculado;
     venta.total = totalActualizado;
+    
+    // --- NUEVO: Actualizar monto_pagado al total ---
+    venta.monto_pagado = totalActualizado;
+    // ----------------------------------------------
+
     venta.fechaHora = ahora;
-    venta.turno = determinarTurno(ahora); // Usamos la utilidad importada
+    venta.turno = determinarTurno(ahora);
 
     this.logger.log(
-      `Pago registrado para Venta #${venta.numeroVenta}. Nuevo estado: ${venta.estado}`,
+      `Pago total registrado para Venta #${venta.numeroVenta}.`,
     );
     return this.ventaRepository.save(venta);
   }
 
   /**
    * Elimina una venta específica de forma permanente (HARD DELETE).
-   * Restaura el stock de los artículos vendidos.
    */
   async delete(id: number): Promise<{ message: string; ventaEliminada: number }> {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -258,10 +392,7 @@ export class VentasService {
         }
       }
 
-      // 2. Eliminar los detalles de la venta (ya se eliminan por 'onDelete: CASCADE')
-      // await queryRunner.manager.delete(VentaDetalle, { venta: { id } });
-
-      // 3. Eliminar la venta
+      // 2. Eliminar la venta
       await queryRunner.manager.delete(Venta, { id });
 
       await queryRunner.commitTransaction();
@@ -281,10 +412,8 @@ export class VentasService {
     }
   }
 
-  // --- MÉTODO 'deleteAll' AÑADIDO DE VUELTA ---
   /**
    * Elimina todas las ventas y sus detalles (SOLO PARA DESARROLLO).
-   * Restaura el stock de los artículos vendidos.
    */
   async deleteAll(): Promise<{ message: string; ventasEliminadas: number }> {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -292,12 +421,11 @@ export class VentasService {
     await queryRunner.startTransaction();
 
     try {
-      // 1. Obtener todas las ventas con sus items
       const ventas = await queryRunner.manager.find(Venta, {
         relations: ['items'],
       });
 
-      // 2. Devolver el stock
+      // Devolver stock
       for (const venta of ventas) {
         if (
           venta.estado === VentaEstado.COMPLETADA ||
@@ -310,21 +438,14 @@ export class VentasService {
               'stock',
               item.cantidad,
             );
-            this.logger.log(
-              `Stock restaurado: ${item.cantidad} a Artículo ID #${item.articuloId}`,
-            );
           }
         }
       }
 
-      // 3. Eliminar todos los detalles
       await queryRunner.manager.delete(VentaDetalle, {});
-
-      // 4. Eliminar todas las ventas
       const result = await queryRunner.manager.delete(Venta, {});
 
-      // 5. Resetear el autoincrement (CAMBIO: Comando para SQLite)
-      // SQLite usa la tabla 'sqlite_sequence' para los autoincrement
+      // Resetear autoincrement SQLite
       await queryRunner.manager.query(
         `DELETE FROM sqlite_sequence WHERE name = 'ventas'`,
       );
@@ -350,4 +471,3 @@ export class VentasService {
     }
   }
 }
-

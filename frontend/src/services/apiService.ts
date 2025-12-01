@@ -135,6 +135,7 @@ export interface Venta {
   interes: number;
   total: number;
   formaPago: FormaPago | null;
+  monto_pagado: number;
   estado: VentaEstado;
   turno: string;
   items: VentaDetalle[];
@@ -173,7 +174,7 @@ export interface Retiro {
 export interface CreateRetiroDto {
   monto: number;
   motivo: string;
-}
+} 
 
 // --- Servicios de Artículos ---
 
@@ -289,7 +290,7 @@ export const createMarca = async (
   }
   return await response.json();
 };
-// --- FIN SERVICIOS DE MARCAS ---
+
 
 // --- Servicios de Proveedores ---
 
@@ -319,7 +320,7 @@ export const createProveedor = async (
   return await response.json();
 };
 
-// --- AÑADIDO: updateProveedor ---
+
 export const updateProveedor = async (
   id: number,
   proveedorData: UpdateProveedorDto,
@@ -504,6 +505,31 @@ export const createRetiro = async (
   if (!response.ok) {
     const errorData = await response.json();
     throw new Error(errorData.message || 'Error al registrar el retiro');
+  }
+  return await response.json();
+};
+
+// Agrega esto en tu services/apiService.ts
+
+export interface PagoClienteDto {
+  clienteNombre: string; // O clienteId si lo tienes
+  monto: number;
+  formaPago: FormaPago;
+  interes: number;
+  fecha?: string;
+}
+
+export const registrarPagoCliente = async (pagoData: PagoClienteDto) => {
+  
+  const response = await fetch(`${API_URL}/ventas/pagar-cuenta`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(pagoData),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Error al registrar el pago parcial');
   }
   return await response.json();
 };

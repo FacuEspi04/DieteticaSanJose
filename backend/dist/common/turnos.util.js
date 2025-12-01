@@ -11,9 +11,9 @@ const determinarTurno = (fecha) => {
     const hora = fecha.getHours();
     const minutos = fecha.getMinutes();
     const tiempoEnMinutos = hora * 60 + minutos;
-    if (tiempoEnMinutos >= 540 && tiempoEnMinutos <= 810)
+    if (tiempoEnMinutos >= 510 && tiempoEnMinutos <= 810)
         return TurnoVenta.MANANA;
-    if (tiempoEnMinutos >= 990 && tiempoEnMinutos <= 1260)
+    if (tiempoEnMinutos >= 990 && tiempoEnMinutos <= 1290)
         return TurnoVenta.TARDE;
     return TurnoVenta.FUERA;
 };

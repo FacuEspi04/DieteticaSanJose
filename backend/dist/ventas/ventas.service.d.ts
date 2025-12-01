@@ -2,6 +2,7 @@ import { Articulo } from 'src/articulos/articulo.entity';
 import { Cliente } from 'src/clientes/cliente.entity';
 import { DataSource, Repository } from 'typeorm';
 import { CreateVentaDto, RegistrarPagoDto } from './dto/venta.dto';
+import { PagarCuentaDto } from './dto/pagar-cuenta.dto';
 import { VentaDetalle } from './venta-detalle.entity';
 import { Venta } from './venta.entity';
 export declare class VentasService {
@@ -16,6 +17,11 @@ export declare class VentasService {
     findAll(fecha?: string): Promise<Venta[]>;
     findPendientes(): Promise<Venta[]>;
     findOne(id: number): Promise<Venta>;
+    pagarCuentaCorriente(dto: PagarCuentaDto): Promise<{
+        message: string;
+        ventasAfectadas: number;
+        reciboGenerado: number;
+    }>;
     registrarPago(id: number, registrarPagoDto: RegistrarPagoDto): Promise<Venta>;
     delete(id: number): Promise<{
         message: string;

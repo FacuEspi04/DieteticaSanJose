@@ -17,6 +17,7 @@ import {
   CreateVentaDto,
   RegistrarPagoDto,
 } from './dto/venta.dto';
+import { PagarCuentaDto } from './dto/pagar-cuenta.dto';
 
 @Controller('api/ventas')
 export class VentasController {
@@ -52,15 +53,10 @@ export class VentasController {
     return this.ventasService.registrarPago(id, registrarPagoDto);
   }
 
-  // --- ENDPOINT DE ANULAR ELIMINADO ---
-  // @Patch(':id/anular')
-  // @HttpCode(HttpStatus.OK)
-  // anular(
-  //   @Param('id', ParseIntPipe) id: number,
-  //   @Body() anularVentaDto: AnularVentaDto,
-  // ) {
-  //   return this.ventasService.anular(id, anularVentaDto);
-  // }
+  @Post('pagar-cuenta')
+  registrarPagoCuenta(@Body() pagarCuentaDto: PagarCuentaDto) {
+    return this.ventasService.pagarCuentaCorriente(pagarCuentaDto);
+  }
 
   @Delete('limpiar-datos-prueba')
   @HttpCode(HttpStatus.OK)

@@ -14,12 +14,12 @@ export const determinarTurno = (fecha: Date): TurnoVenta => {
   const minutos = fecha.getMinutes();
   const tiempoEnMinutos = hora * 60 + minutos;
 
-  // Mañana: 9:00 - 13:30 (540 - 810 minutos)
-  if (tiempoEnMinutos >= 540 && tiempoEnMinutos <= 810)
+  // Mañana: 8:30 - 13:30 (510 - 810 minutos)
+  if (tiempoEnMinutos >= 510 && tiempoEnMinutos <= 810)
     return TurnoVenta.MANANA;
     
-  // Tarde: 16:30 - 21:00 (990 - 1260 minutos)
-  if (tiempoEnMinutos >= 990 && tiempoEnMinutos <= 1260)
+  // Tarde: 16:30 - 21:30 (990 - 1290 minutos)
+  if (tiempoEnMinutos >= 990 && tiempoEnMinutos <= 1290)
     return TurnoVenta.TARDE;
 
   return TurnoVenta.FUERA;

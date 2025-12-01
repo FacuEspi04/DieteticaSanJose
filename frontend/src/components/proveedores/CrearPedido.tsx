@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Card,
   Row,
@@ -9,14 +9,22 @@ import {
   Modal,
   Alert,
   Spinner,
+  Badge,
+  InputGroup,
 } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
 import logo from "../../assets/dietSanJose.png";
-// --- 1. AÑADIDO: Imports para PDF e íconos ---
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { FileEarmarkPdf, ClipboardPlus } from "react-bootstrap-icons";
-// ---------------------------------------------
+import { 
+  FileEarmarkPdf, 
+  ClipboardPlus, 
+  Search, 
+  ExclamationTriangle, 
+  Plus, 
+  Dash, 
+  Trash, 
+  ArrowLeft
+} from "react-bootstrap-icons";
 import {
   createPedido,
   getArticulos,
@@ -26,39 +34,37 @@ import {
   type Pedido,
   type Proveedor,
 } from "../../services/apiService";
+import { useNavigate } from "react-router-dom";
 
 interface ItemPedido {
-  articulo: Articulo; // Usaremos el tipo 'Articulo' completo
+  articulo: Articulo;
   cantidad: number;
 }
 
-// Interfaz para el pedido guardado (la respuesta de la API)
 type PedidoGuardado = Pedido;
 
 const CrearPedido: React.FC = () => {
-  const navigate = useNavigate();
 
-  // Estados de datos
+  // --- Estados de Datos ---
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [catalogoArticulos, setCatalogoArticulos] = useState<Articulo[]>([]);
 
-  // Estados del formulario
+  // --- Estados del Formulario de Pedido ---
   const [proveedorId, setProveedorId] = useState<string>("");
-  const [articuloId, setArticuloId] = useState<string>("");
-  const [cantidad, setCantidad] = useState<number>(1);
   const [itemsPedido, setItemsPedido] = useState<ItemPedido[]>([]);
   const [observaciones, setObservaciones] = useState<string>("");
-
-  // Estados de UI
+  
+  // --- Estados de UI y Filtros ---
+  const navigate = useNavigate();
+  const [busqueda, setBusqueda] = useState(""); // Para filtrar artículos
   const [showConfirm, setShowConfirm] = useState(false);
   const [exito, setExito] = useState<string>("");
   const [error, setError] = useState<string>("");
-  const [pedidoConfirmado, setPedidoConfirmado] =
-    useState<PedidoGuardado | null>(null);
+  const [pedidoConfirmado, setPedidoConfirmado] = useState<PedidoGuardado | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Carga inicial de datos
+  // Carga inicial
   useEffect(() => {
     const cargarDatos = async () => {
       setIsLoading(true);
@@ -85,48 +91,78 @@ const CrearPedido: React.FC = () => {
     cargarDatos();
   }, []);
 
-  const agregarItem = () => {
+  // --- LÓGICA DE FILTRADO ---
+  const articulosFiltrados = useMemo(() => {
+    return catalogoArticulos.filter(a => 
+      a.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+      a.codigo_barras?.includes(busqueda)
+    );
+  }, [catalogoArticulos, busqueda]);
+
+  // Separar Stock Crítico vs Normal
+  const stockCritico = useMemo(() => {
+    return articulosFiltrados.filter(a => a.stock <= a.stock_minimo);
+  }, [articulosFiltrados]);
+
+  const stockNormal = useMemo(() => {
+    return articulosFiltrados.filter(a => a.stock > a.stock_minimo);
+  }, [articulosFiltrados]);
+
+
+  // --- MANEJADORES DEL PEDIDO ---
+
+  // Agregar o Sumar 1 unidad
+  const agregarAlPedido = (articulo: Articulo) => {
     setError("");
-    const idBuscado = Number(articuloId);
-    const art = catalogoArticulos.find((a) => a.id === idBuscado);
+    const existente = itemsPedido.find((i) => i.articulo.id === articulo.id);
 
-    if (!art) {
-      setError("Selecciona un artículo válido");
-      return;
-    }
-    if (cantidad <= 0) {
-      setError("La cantidad debe ser mayor a 0");
-      return;
-    }
-
-    const existente = itemsPedido.find((i) => i.articulo.id === art.id);
     if (existente) {
       setItemsPedido(
         itemsPedido.map((i) =>
-          i.articulo.id === art.id
-            ? { ...i, cantidad: i.cantidad + cantidad }
-            : i,
-        ),
+          i.articulo.id === articulo.id
+            ? { ...i, cantidad: i.cantidad + 1 }
+            : i
+        )
       );
     } else {
-      setItemsPedido([...itemsPedido, { articulo: art, cantidad }]);
+      setItemsPedido([...itemsPedido, { articulo, cantidad: 1 }]);
     }
-    setArticuloId("");
-    setCantidad(1);
   };
 
-  const eliminarItem = (id: number) => {
+  // Restar 1 unidad
+  const restarDelPedido = (articuloId: number) => {
+    const existente = itemsPedido.find((i) => i.articulo.id === articuloId);
+    if (existente && existente.cantidad > 1) {
+        setItemsPedido(
+            itemsPedido.map((i) =>
+              i.articulo.id === articuloId
+                ? { ...i, cantidad: i.cantidad - 1 }
+                : i
+            )
+          );
+    } else {
+        eliminarDelPedido(articuloId);
+    }
+  }
+
+  // Cambiar cantidad manualmente (input)
+  const cambiarCantidadManual = (articuloId: number, nuevaCantidad: number) => {
+      if (nuevaCantidad < 1) return;
+      setItemsPedido(itemsPedido.map(i => i.articulo.id === articuloId ? {...i, cantidad: nuevaCantidad} : i));
+  }
+
+  const eliminarDelPedido = (id: number) => {
     setItemsPedido(itemsPedido.filter((i) => i.articulo.id !== id));
   };
 
   const abrirConfirmacion = () => {
     setError("");
     if (!proveedorId) {
-      setError("Selecciona un proveedor");
+      setError("⚠️ Debes seleccionar un proveedor antes de confirmar.");
       return;
     }
     if (itemsPedido.length === 0) {
-      setError("Agrega al menos un artículo al pedido");
+      setError("⚠️ El pedido está vacío. Agrega artículos desde el listado.");
       return;
     }
     setShowConfirm(true);
@@ -147,17 +183,14 @@ const CrearPedido: React.FC = () => {
 
     try {
       const pedidoGuardado = await createPedido(pedidoDto);
-
       setPedidoConfirmado(pedidoGuardado);
       setShowConfirm(false);
       setExito("¡Pedido creado exitosamente!");
-
+      
+      // Limpiar formulario pero mantener confirmación visible
       setItemsPedido([]);
-      setProveedorId("");
       setObservaciones("");
-      setArticuloId("");
-      setCantidad(1);
-
+      
       setTimeout(() => setExito(""), 3000);
     } catch (err: any) {
       console.error("Error al confirmar pedido:", err);
@@ -175,348 +208,291 @@ const CrearPedido: React.FC = () => {
     setItemsPedido([]);
     setProveedorId("");
     setObservaciones("");
-    setArticuloId("");
-    setCantidad(1);
+    setBusqueda("");
   };
 
-  // --- 2. FUNCIÓN DE IMPRESIÓN REEMPLAZADA POR JSPDF ---
+  // --- PDF Generator ---
   const imprimirPedido = (pedido: PedidoGuardado) => {
     const doc = new jsPDF();
     const margin = 14;
-    const fechaFormateada = new Date(pedido.fechaPedido).toLocaleDateString(
-      "es-AR",
-    );
+    const fechaFormateada = new Date(pedido.fechaPedido).toLocaleDateString("es-AR");
 
-    // Título
     doc.setFontSize(18);
     doc.text(`Pedido a Proveedor`, margin, 22);
     doc.setFontSize(11);
     doc.setTextColor(100);
-    doc.text(`Fecha Pedido: ${fechaFormateada}`, margin, 28);
-    doc.text(
-      `Estado: ${pedido.estado}`,
-      margin,
-      34
-    );
+    doc.text(`Fecha: ${fechaFormateada}`, margin, 28);
+    doc.text(`N° Pedido: ${pedido.id}`, margin, 34);
 
-    // Sección Proveedor (como texto simple)
     doc.setFontSize(14);
+    doc.setTextColor(0);
     doc.text("Proveedor", margin, 46);
     doc.setFontSize(11);
-    doc.setTextColor(0); // Reset text color
     let startY = 52;
     doc.text(`Nombre: ${pedido.proveedor.nombre}`, margin, startY);
-    if (pedido.proveedor.contacto) {
-      startY += 6;
-      doc.text(`Contacto: ${pedido.proveedor.contacto}`, margin, startY);
-    }
-    if (pedido.proveedor.telefono) {
-      startY += 6;
-      doc.text(`Teléfono: ${pedido.proveedor.telefono}`, margin, startY);
-    }
-    if (pedido.proveedor.email) {
-      startY += 6;
-      doc.text(`Email: ${pedido.proveedor.email}`, margin, startY);
-    }
     
-    // Observaciones
     if (pedido.notas) {
-      startY += 8; // Extra space
-      doc.setFontSize(12);
-      doc.text("Observaciones:", margin, startY);
-      doc.setFontSize(11);
-      startY += 6;
-      // Usar splitTextToSize para notas largas
-      const notes = doc.splitTextToSize(pedido.notas, 180); // 180mm width
-      doc.text(notes, margin, startY);
-      startY += notes.length * 6; // Ajustar Y
+      startY += 10;
+      doc.text(`Notas: ${pedido.notas}`, margin, startY);
     }
 
-    // Sección Artículos (Tabla)
     startY += 10;
-    doc.setFontSize(14);
-    doc.text("Artículos Pedidos", margin, startY);
-
     autoTable(doc, {
       startY: startY + 4,
-      head: [["Artículo", "Cantidad Pedida"]],
-      body: pedido.items.map((i) => [
-        i.articulo.nombre, 
-        i.cantidad
-      ]),
+      head: [["Artículo", "Cant."]],
+      body: pedido.items.map((i) => [i.articulo.nombre, i.cantidad]),
       theme: "striped",
-      headStyles: { fillColor: [143, 61, 56] }, // Color principal
+      headStyles: { fillColor: [143, 61, 56] },
     });
 
-    // Guardar el archivo
-    doc.save(
-      `pedido_${pedido.proveedor.nombre.replace(/ /g, "_")}_${fechaFormateada}.pdf`,
-    );
+    doc.save(`pedido_${pedido.proveedor.nombre}_${fechaFormateada}.pdf`);
   };
-  // --- FIN DE LA FUNCIÓN MODIFICADA ---
+
+
+  // --- RENDER ---
+  if (isLoading) {
+      return <div className="text-center my-5"><Spinner animation="border" /> Cargando...</div>;
+  }
 
   return (
     <div>
-      {/* Logo */}
-      <div className="d-flex justify-content-end mb-3">
-        <img
-          src={logo}
-          alt="Dietética San José"
-          style={{ height: "80px", objectFit: "contain" }}
-        />
+      {/* Encabezado */}
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <Button
+                      variant="link"
+                      onClick={() => navigate("/proveedores")}
+                      className="p-0 me-2"
+                      style={{ textDecoration: "none" }}
+                    >
+                      <ArrowLeft size={24} />
+                    </Button>
+        <h3 className="mb-0"><ClipboardPlus className="me-2"/>Nuevo Pedido</h3>
+        <img src={logo} alt="Logo" style={{ height: "60px" }} />
       </div>
 
-      <Card className="mt-4 shadow-sm">
-        <Card.Header>
-          <h5 className="mb-0">Nuevo Pedido a Proveedor</h5>
-        </Card.Header>
-        <Card.Body>
-          {error && (
-            <Alert variant="danger" dismissible onClose={() => setError("")}>
-              {error}
-            </Alert>
-          )}
-          {exito && (
-            <Alert variant="success" dismissible onClose={() => setExito("")}>
-              {exito}
-            </Alert>
-          )}
+      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
+      {exito && <Alert variant="success" dismissible onClose={() => setExito("")}>{exito}</Alert>}
 
-          {isLoading ? (
-            <div className="text-center my-5">
-              <Spinner animation="border" variant="success" />
-              <p className="mt-2">Cargando datos...</p>
-            </div>
-          ) : (
-            <>
-              {!pedidoConfirmado && (
-                <>
-                  <Row className="mb-3">
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label>Proveedor</Form.Label>
-                        <Form.Select
-                          value={proveedorId}
-                          onChange={(e) => setProveedorId(e.target.value)}
-                        >
-                          <option value="">Selecciona un proveedor...</option>
-                          {proveedores.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.nombre}
-                            </option>
-                          ))}
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group>
-                        <Form.Label>Observaciones</Form.Label>
-                        <Form.Control
-                          type="text"
-                          placeholder="Notas del pedido (opcional)"
-                          value={observaciones}
-                          onChange={(e) => setObservaciones(e.target.value)}
-                        />
-                      </Form.Group>
-                    </Col>
-                  </Row>
+      {!pedidoConfirmado ? (
+        <Row>
+            {/* COLUMNA IZQUIERDA: Catálogo de Artículos */}
+            <Col md={8}>
+                <Card className="shadow-sm h-100">
+                    <Card.Header className="bg-light">
+                        <InputGroup>
+                            <InputGroup.Text><Search/></InputGroup.Text>
+                            <Form.Control 
+                                type="text" 
+                                placeholder="Buscar artículo por nombre o código..."
+                                value={busqueda}
+                                onChange={(e) => setBusqueda(e.target.value)}
+                                autoFocus
+                            />
+                        </InputGroup>
+                    </Card.Header>
+                    <Card.Body style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                        
+                        {/* SECCIÓN 1: STOCK CRÍTICO */}
+                        {stockCritico.length > 0 && (
+                            <div className="mb-4">
+                                <h6 className="text-danger d-flex align-items-center mb-2">
+                                    <ExclamationTriangle className="me-2"/> Artículos con Stock Crítico (Bajo Mínimo)
+                                </h6>
+                                <Table hover size="sm" className="border-danger" bordered>
+                                    <thead className="bg-danger text-white">
+                                        <tr>
+                                            <th>Artículo</th>
+                                            <th className="text-center">Stock Actual</th>
+                                            <th className="text-center">Mínimo</th>
+                                            <th className="text-center">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {stockCritico.map(art => (
+                                            <tr key={art.id} style={{backgroundColor: '#fff5f5'}}>
+                                                <td className="align-middle fw-bold">{art.nombre}</td>
+                                                <td className="text-center align-middle text-danger fw-bold">{art.stock}</td>
+                                                <td className="text-center align-middle text-muted">{art.stock_minimo}</td>
+                                                <td className="text-center align-middle">
+                                                    <Button 
+                                                        size="sm" 
+                                                        variant="outline-danger" 
+                                                        onClick={() => agregarAlPedido(art)}
+                                                    >
+                                                        <Plus className="fw-bold"/> Agregar
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </Table>
+                            </div>
+                        )}
 
-                  <Row className="mb-3">
-                    <Col md={7}>
-                      <Form.Group>
-                        <Form.Label>Artículo</Form.Label>
-                        <Form.Select
-                          value={articuloId}
-                          onChange={(e) => setArticuloId(e.target.value)}
-                        >
-                          <option value="">Selecciona un artículo...</option>
-                          {catalogoArticulos.map((a) => (
-                            <option key={a.id} value={a.id}>
-                              {a.nombre}
-                            </option>
-                          ))}
-                        </Form.Select>
-                      </Form.Group>
-                    </Col>
-                    <Col md={3}>
-                      <Form.Group>
-                        <Form.Label>Cantidad</Form.Label>
-                        <Form.Control
-                          type="number"
-                          min={1}
-                          value={cantidad}
-                          onChange={(e) =>
-                            setCantidad(parseInt(e.target.value || "0", 10))
-                          }
-                        />
-                      </Form.Group>
-                    </Col>
-                    <Col md={2} className="d-flex align-items-end">
-                      <Button
-                        variant="primary"
-                        className="w-100"
-                        onClick={agregarItem}
-                      >
-                        Agregar
-                      </Button>
-                    </Col>
-                  </Row>
+                        {/* SECCIÓN 2: RESTO DEL CATÁLOGO */}
+                        <h6 className="text-muted mb-2">Catálogo General</h6>
+                        <Table hover size="sm">
+                            <thead>
+                                <tr>
+                                    <th>Artículo</th>
+                                    <th className="text-center">Stock</th>
+                                    <th className="text-center">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {stockNormal.map(art => (
+                                    <tr key={art.id}>
+                                        <td className="align-middle">{art.nombre}</td>
+                                        <td className="text-center align-middle">
+                                            <Badge bg="success">{art.stock}</Badge>
+                                        </td>
+                                        <td className="text-center align-middle">
+                                            <Button 
+                                                size="sm" 
+                                                variant="outline-primary" 
+                                                onClick={() => agregarAlPedido(art)}
+                                            >
+                                                <Plus/>
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {stockNormal.length === 0 && stockCritico.length === 0 && (
+                                    <tr><td colSpan={3} className="text-center text-muted py-3">No se encontraron artículos.</td></tr>
+                                )}
+                            </tbody>
+                        </Table>
+                    </Card.Body>
+                </Card>
+            </Col>
 
-                  <Table striped bordered hover responsive>
-                    <thead
-                      style={{ backgroundColor: "#8f3d38", color: "white" }}
-                    >
-                      <tr>
-                        <th>Artículo</th>
-                        <th style={{ width: 120 }}>Cantidad</th>
-                        <th style={{ width: 120 }}>Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {itemsPedido.length > 0 ? (
-                        itemsPedido.map((item) => (
-                          <tr key={item.articulo.id}>
-                            <td>{item.articulo.nombre}</td>
-                            <td>
-                              <Form.Control
-                                type="number"
-                                min={1}
-                                value={item.cantidad}
-                                onChange={(e) => {
-                                  const val = parseInt(
-                                    e.target.value || "0",
-                                    10,
-                                  );
-                                  setItemsPedido(
-                                    itemsPedido.map((i) =>
-                                      i.articulo.id === item.articulo.id
-                                        ? { ...i, cantidad: val }
-                                        : i,
-                                    ),
-                                  );
-                                }}
-                              />
-                            </td>
-                            <td>
-                              <Button
-                                variant="outline-danger"
-                                size="sm"
-                                onClick={() => eliminarItem(item.articulo.id)}
-                              >
-                                Eliminar
-                              </Button>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={3} className="text-center">
-                            Sin artículos agregados
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </Table>
-                </>
-              )}
+            {/* COLUMNA DERECHA: Resumen del Pedido */}
+            <Col md={4}>
+                <Card className="shadow-sm border-primary h-100">
+                    <Card.Header className="bg-primary text-white">
+                        <h5 className="mb-0">Resumen del Pedido</h5>
+                    </Card.Header>
+                    <Card.Body className="d-flex flex-column">
+                        {/* Selector de Proveedor */}
+                        <Form.Group className="mb-3">
+                            <Form.Label className="fw-bold">Proveedor</Form.Label>
+                            <Form.Select 
+                                value={proveedorId} 
+                                onChange={(e) => setProveedorId(e.target.value)}
+                                className={!proveedorId ? "border-danger" : "border-success"}
+                            >
+                                <option value="">-- Seleccionar Proveedor --</option>
+                                {proveedores.map(p => (
+                                    <option key={p.id} value={p.id}>{p.nombre}</option>
+                                ))}
+                            </Form.Select>
+                            {!proveedorId && <Form.Text className="text-danger">Seleccione uno para continuar</Form.Text>}
+                        </Form.Group>
 
-              {/* --- 3. MODIFICACIÓN: Iconos en botones --- */}
-              <div className="d-flex justify-content-end gap-2">
-                {!pedidoConfirmado ? (
-                  <>
-                    <Button
-                      variant="secondary"
-                      onClick={() => navigate("/proveedores")}
-                    >
-                      Volver
+                        <Form.Group className="mb-3">
+                            <Form.Label>Observaciones</Form.Label>
+                            <Form.Control 
+                                as="textarea" 
+                                rows={2}
+                                placeholder="Ej: Entregar por la mañana..." 
+                                value={observaciones}
+                                onChange={(e) => setObservaciones(e.target.value)}
+                            />
+                        </Form.Group>
+
+                        <hr />
+
+                        {/* Lista de Items Agregados */}
+                        <div className="flex-grow-1 overflow-auto" style={{maxHeight: '40vh'}}>
+                            {itemsPedido.length === 0 ? (
+                                <div className="text-center text-muted py-4">
+                                    <em>El pedido está vacío.<br/>Seleccione artículos de la izquierda.</em>
+                                </div>
+                            ) : (
+                                <Table size="sm" borderless>
+                                    <tbody>
+                                        {itemsPedido.map((item, idx) => (
+                                            <tr key={idx} className="border-bottom">
+                                                <td className="align-middle">
+                                                    <small className="fw-bold">{item.articulo.nombre}</small>
+                                                </td>
+                                                <td className="align-middle" style={{width: '110px'}}>
+                                                    <InputGroup size="sm">
+                                                        <Button variant="outline-secondary" onClick={() => restarDelPedido(item.articulo.id)}><Dash/></Button>
+                                                        <Form.Control 
+                                                            className="text-center px-0" 
+                                                            value={item.cantidad} 
+                                                            onChange={(e) => cambiarCantidadManual(item.articulo.id, parseInt(e.target.value) || 1)}
+                                                        />
+                                                        <Button variant="outline-secondary" onClick={() => agregarAlPedido(item.articulo)}><Plus/></Button>
+                                                    </InputGroup>
+                                                </td>
+                                                <td className="align-middle text-end">
+                                                    <Button size="sm" variant="link" className="text-danger p-0" onClick={() => eliminarDelPedido(item.articulo.id)}>
+                                                        <Trash/>
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </Table>
+                            )}
+                        </div>
+                    </Card.Body>
+                    <Card.Footer>
+                        <div className="d-flex justify-content-between align-items-center">
+                            <strong>Total Items: {itemsPedido.length}</strong>
+                            <Button 
+                                variant="success" 
+                                onClick={abrirConfirmacion}
+                                disabled={itemsPedido.length === 0 || !proveedorId}
+                            >
+                                Confirmar Pedido
+                            </Button>
+                        </div>
+                    </Card.Footer>
+                </Card>
+            </Col>
+        </Row>
+      ) : (
+        /* VISTA DE ÉXITO / POST-CONFIRMACIÓN */
+        <Card className="text-center p-5 shadow">
+            <Card.Body>
+                <div className="text-success mb-3">
+                    <ClipboardPlus size={60}/>
+                </div>
+                <h3>¡Pedido Generado Exitosamente!</h3>
+                <p className="text-muted">El pedido ha sido guardado en el sistema.</p>
+                <div className="d-flex justify-content-center gap-3 mt-4">
+                    <Button variant="secondary" onClick={handleNuevoPedido}>
+                        Volver al Inicio
                     </Button>
-                    <Button variant="success" onClick={abrirConfirmacion}>
-                      Confirmar Pedido
+                    <Button variant="primary" onClick={() => pedidoConfirmado && imprimirPedido(pedidoConfirmado)}>
+                        <FileEarmarkPdf className="me-2"/> Descargar PDF
                     </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button variant="success" onClick={handleNuevoPedido}>
-                      <ClipboardPlus className="me-1" />
-                      Hacer Nuevo Pedido
-                    </Button>
-                    <Button
-                      variant="warning"
-                      onClick={() => imprimirPedido(pedidoConfirmado)}
-                    >
-                      <FileEarmarkPdf className="me-1" />
-                      Descargar PDF
-                    </Button>
-                  </>
-                )}
-              </div>
-              {/* --- FIN DE LA MODIFICACIÓN --- */}
-            </>
-          )}
-        </Card.Body>
-      </Card>
+                </div>
+            </Card.Body>
+        </Card>
+      )}
 
       {/* Modal de confirmación */}
       <Modal show={showConfirm} onHide={() => setShowConfirm(false)} centered>
-        <Modal.Header closeButton>
+        <Modal.Header closeButton className="bg-success text-white">
           <Modal.Title>Confirmar Pedido</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {error && isSubmitting && <Alert variant="danger">{error}</Alert>}
-          {!proveedorId ? (
-            <Alert variant="danger">Selecciona un proveedor</Alert>
-          ) : (
-            <>
-              <p>
-                <strong>Proveedor:</strong>{" "}
-                {
-                  proveedores.find((p) => p.id === Number(proveedorId))
-                    ?.nombre
-                }
-              </p>
-              <p>
-                <strong>Artículos:</strong>
-              </p>
-              <ul>
-                {itemsPedido.map((i) => (
-                  <li key={i.articulo.id}>
-                    {i.articulo.nombre} x{i.cantidad}
-                  </li>
-                ))}
-              </ul>
-              {observaciones && (
-                <p>
-                  <strong>Observaciones:</strong> {observaciones}
-                </p>
-              )}
-            </>
-          )}
+          <p>Se generará un pedido para: <strong>{proveedores.find(p => p.id === Number(proveedorId))?.nombre}</strong></p>
+          <p>Cantidad de artículos distintos: <strong>{itemsPedido.length}</strong></p>
+          <Alert variant="warning">
+            <small>Verifique que las cantidades sean correctas antes de confirmar.</small>
+          </Alert>
         </Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowConfirm(false)}
-            disabled={isSubmitting}
-          >
+          <Button variant="secondary" onClick={() => setShowConfirm(false)} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button
-            variant="success"
-            onClick={confirmarPedido}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <Spinner
-                  animation="border"
-                  size="sm"
-                  className="me-2"
-                />
-                Confirmando...
-              </>
-            ) : (
-              "Confirmar"
-            )}
+          <Button variant="success" onClick={confirmarPedido} disabled={isSubmitting}>
+            {isSubmitting ? <><Spinner size="sm" animation="border"/> Guardando...</> : "Confirmar y Guardar"}
           </Button>
         </Modal.Footer>
       </Modal>
