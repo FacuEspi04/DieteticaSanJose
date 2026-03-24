@@ -8,22 +8,32 @@ import {
   Alert,
   Spinner,
   InputGroup,
+  Tabs,
+  Tab,
 } from "react-bootstrap";
-import { ArrowLeft, CashCoin, CheckCircle, Wallet2, CalendarDate } from "react-bootstrap-icons";
+import { ArrowLeft, CashCoin, CheckCircle, Wallet2, CalendarDate, People, PlusCircle, PencilSquare, Trash } from "react-bootstrap-icons";
 import logo from "../../assets/dietSanJose.png";
 import {
   getVentasPendientes,
   type Venta,
   type FormaPago,
   registrarPagoCliente,
+  getClientes,
+  createCliente,
+  updateCliente,
+  deleteCliente,
+  type Cliente,
+  type CreateClienteDto
 } from "../../services/apiService";
 import { useNavigate } from "react-router-dom";
 
 const CuentasCorrientes: React.FC = () => {
   const navigate = useNavigate();
   const [ventasPendientes, setVentasPendientes] = useState<Venta[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tabKey, setTabKey] = useState("deudas");
 
   // Estados Modal
   const [showModal, setShowModal] = useState(false);
@@ -40,6 +50,17 @@ const CuentasCorrientes: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [exito, setExito] = useState("");
 
+  // Modales Directorio Clientes
+  const [showClienteModal, setShowClienteModal] = useState(false);
+  const [clienteAEditar, setClienteAEditar] = useState<Cliente | null>(null);
+  const [formCliente, setFormCliente] = useState<CreateClienteDto>({
+    nombre: "",
+    telefono: "",
+    email: "",
+    direccion: "",
+  });
+  const [isSubmittingCliente, setIsSubmittingCliente] = useState(false);
+
   // Función auxiliar para obtener fecha actual formato YYYY-MM-DD
   const getTodayString = () => {
     const hoy = new Date();
@@ -50,18 +71,22 @@ const CuentasCorrientes: React.FC = () => {
   };
 
   useEffect(() => {
-    cargarVentasPendientes();
+    cargarDatos();
   }, []);
 
-  const cargarVentasPendientes = async () => {
+  const cargarDatos = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getVentasPendientes();
-      setVentasPendientes(data);
+      const [ventasData, clientesData] = await Promise.all([
+        getVentasPendientes(),
+        getClientes()
+      ]);
+      setVentasPendientes(ventasData);
+      setClientes(clientesData || []);
     } catch (err: any) {
-      console.error("Error al cargar ventas pendientes:", err);
-      setError(err.message || "No se pudieron cargar las cuentas pendientes.");
+      console.error("Error al cargar datos:", err);
+      setError(err.message || "No se pudieron cargar los datos.");
       setVentasPendientes([]);
     } finally {
       setIsLoading(false);
@@ -130,13 +155,13 @@ const CuentasCorrientes: React.FC = () => {
         monto: montoNumerico,
         formaPago: formaPagoPago,
         interes: montoConInteres - montoNumerico,
-        fecha: fechaPago // <--- DATO CLAVE
+        fecha: fechaPago 
       });
 
       setShowModal(false);
       setExito(`¡Pago de $${montoNumerico} registrado correctamente para ${clienteSeleccionado}!`);
       
-      await cargarVentasPendientes();
+      await cargarDatos();
 
       setTimeout(() => setExito(""), 5000);
     } catch (apiError: any) {
@@ -146,6 +171,62 @@ const CuentasCorrientes: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
+  const handleShowClienteModal = (cliente?: Cliente) => {
+    if (cliente) {
+      setClienteAEditar(cliente);
+      setFormCliente({
+        nombre: cliente.nombre,
+        telefono: cliente.telefono || "",
+        email: cliente.email || "",
+        direccion: cliente.direccion || "",
+      });
+    } else {
+      setClienteAEditar(null);
+      setFormCliente({ nombre: "", telefono: "", email: "", direccion: "" });
+    }
+    setShowClienteModal(true);
+  };
+
+  const handleGuardarCliente = async () => {
+    if (!formCliente.nombre.trim()) {
+       setError("El nombre es obligatorio");
+       return;
+    }
+    setIsSubmittingCliente(true);
+    setError(null);
+    try {
+       if (clienteAEditar) {
+         await updateCliente(clienteAEditar.id, formCliente);
+         setExito(`Cliente ${formCliente.nombre} actualizado.`);
+       } else {
+         await createCliente(formCliente);
+         setExito(`Cliente ${formCliente.nombre} creado.`);
+       }
+       setShowClienteModal(false);
+       await cargarDatos();
+       setTimeout(() => setExito(""), 3000);
+    } catch(err: any) {
+       setError(err.message || "Error al guardar el cliente");
+    } finally {
+       setIsSubmittingCliente(false);
+    }
+  };
+
+  const handleEliminarCliente = async (id: number) => {
+     if (window.confirm("¿Estás seguro de eliminar este cliente?")) {
+        try {
+           setIsLoading(true);
+           await deleteCliente(id);
+           setExito("Cliente eliminado");
+           await cargarDatos();
+           setTimeout(() => setExito(""), 3000);
+        } catch(err: any) {
+           setError("No se puede eliminar el cliente porque tiene ventas asociadas o ocurrió un error.");
+           setIsLoading(false);
+        }
+     }
+  }
 
   const formatearFecha = (fechaISO: string | Date) => {
     const fecha = new Date(fechaISO);
@@ -166,19 +247,19 @@ const CuentasCorrientes: React.FC = () => {
       </div>
 
       <Card className="mt-4 shadow-sm">
-        <Card.Header>
-          <Button
-              variant="link"
-              onClick={() => navigate("/ventas")}
-              className="p-0 me-2"
-              style={{ textDecoration: "none" }}
-            >
-          <ArrowLeft size={24} />
-          </Button>
-          <h5 className="mb-0 text-center">
+        <Card.Header className="d-flex justify-content-between align-items-center">
+          <h5 className="mb-0">
             <CashCoin className="me-2" />
             Cuentas Corrientes
           </h5>
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={() => navigate("/ventas")}
+          >
+            <ArrowLeft className="me-1" />
+            Volver
+          </Button>
         </Card.Header>
         <Card.Body>
           {exito && (
@@ -194,25 +275,35 @@ const CuentasCorrientes: React.FC = () => {
           {isLoading ? (
             <div className="text-center my-5">
               <Spinner animation="border" variant="success" />
-              <p className="mt-2">Calculando saldos...</p>
+              <p className="mt-2">Cargando datos...</p>
             </div>
-          ) : Object.keys(ventasPorCliente).length > 0 ? (
-            <>
-              {Object.keys(ventasPorCliente).map((cliente) => (
-                <Card key={cliente} className="mb-4 border-0 shadow-sm">
-                  <Card.Header className="d-flex justify-content-between align-items-center text-white" style={{ backgroundColor: "#8f3d38" }}>
+          ) : (
+            <Tabs
+              id="cuentas-corrientes-tabs"
+              activeKey={tabKey}
+              onSelect={(k) => setTabKey(k || "deudas")}
+              className="mb-4 custom-tabs"
+            >
+              <Tab eventKey="deudas" title={<><CashCoin className="me-2"/> Deudas Pendientes</>}>
+                <div className="mt-3">
+                  {Object.keys(ventasPorCliente).length > 0 ? (
+                    <>
+                      {Object.keys(ventasPorCliente).map((cliente) => (
+                        <Card key={cliente} className="mb-4 border-0 shadow-sm">
+                  <Card.Header className="d-flex justify-content-between align-items-center bg-light text-dark">
                     <div className="d-flex align-items-center gap-2">
-                        <Wallet2 size={20}/>
-                        <span className="h5 mb-0">{cliente}</span>
+                        <Wallet2 size={20} className="text-secondary" />
+                        <span className="h5 mb-0 fw-bold">{cliente}</span>
                     </div>
                     <div className="d-flex align-items-center gap-3">
-                        <span className="fs-5 badge bg-light text-dark">
+                        <span className="fs-5 badge bg-danger text-white">
                             Deuda Total: ${calcularDeudaCliente(cliente).toFixed(2)}
                         </span>
                         <Button 
                             variant="success" 
+                            size="sm"
                             onClick={() => handleAbrirModalPago(cliente)}
-                            style={{ fontWeight: 'bold', border: '1px solid white' }}
+                            style={{ fontWeight: 'bold' }}
                         >
                             Registrar Entrega / Pago
                         </Button>
@@ -220,8 +311,8 @@ const CuentasCorrientes: React.FC = () => {
                   </Card.Header>
                   
                   <Card.Body className="p-0">
-                    <Table striped hover responsive size="sm" className="mb-0">
-                      <thead className="bg-light">
+                    <Table striped bordered hover responsive size="sm" className="mb-0">
+                      <thead style={{ backgroundColor: "#8f3d38", color: "white" }}>
                         <tr>
                           <th>Fecha</th>
                           <th>Detalle</th>
@@ -269,6 +360,59 @@ const CuentasCorrientes: React.FC = () => {
             <Alert variant="info" className="text-center">
               ✅ No hay deudas pendientes
             </Alert>
+          )}
+                </div>
+              </Tab>
+
+              <Tab eventKey="directorio" title={<><People className="me-2"/> Directorio de Clientes</>}>
+                <div className="mt-3">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h5 className="mb-0 text-secondary">Clientes Registrados</h5>
+                    <Button variant="success" size="sm" onClick={() => handleShowClienteModal()}>
+                      <PlusCircle className="me-1" /> Nuevo Cliente
+                    </Button>
+                  </div>
+
+                  <Table striped bordered hover responsive>
+                    <thead style={{ backgroundColor: "#8f3d38", color: "white" }}>
+                      <tr>
+                        <th>N° Interno</th>
+                        <th>Nombre</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th className="text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clientes.length > 0 ? (
+                        clientes.map((c) => (
+                          <tr key={c.id}>
+                            <td>{c.id}</td>
+                            <td className="fw-bold">{c.nombre}</td>
+                            <td>{c.telefono || <small className="text-muted">N/A</small>}</td>
+                            <td>{c.email || <small className="text-muted">N/A</small>}</td>
+                            <td className="text-center">
+                              <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleShowClienteModal(c)}>
+                                <PencilSquare />
+                              </Button>
+                              <Button variant="outline-danger" size="sm" onClick={() => handleEliminarCliente(c.id)}>
+                                <Trash />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={5} className="text-center text-muted">
+                            No hay clientes registrados de forma persistente.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </Table>
+                </div>
+              </Tab>
+            </Tabs>
           )}
         </Card.Body>
       </Card>
@@ -364,6 +508,59 @@ const CuentasCorrientes: React.FC = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Modal Directorio de Clientes (Crear/Editar) */}
+      <Modal show={showClienteModal} onHide={() => setShowClienteModal(false)} centered>
+        <Modal.Header closeButton style={{ backgroundColor: "#8f3d38", color: "white" }}>
+          <Modal.Title>{clienteAEditar ? "Editar Cliente" : "Nuevo Cliente"}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {error && <Alert variant="danger">{error}</Alert>}
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Nombre Completo <span className="text-danger">*</span></Form.Label>
+              <Form.Control 
+                type="text" 
+                value={formCliente.nombre} 
+                onChange={(e) => setFormCliente({...formCliente, nombre: e.target.value})}
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Teléfono</Form.Label>
+              <Form.Control 
+                type="text" 
+                value={formCliente.telefono} 
+                onChange={(e) => setFormCliente({...formCliente, telefono: e.target.value})}
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Email</Form.Label>
+              <Form.Control 
+                type="email" 
+                value={formCliente.email} 
+                onChange={(e) => setFormCliente({...formCliente, email: e.target.value})}
+              />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Dirección</Form.Label>
+              <Form.Control 
+                type="text" 
+                value={formCliente.direccion} 
+                onChange={(e) => setFormCliente({...formCliente, direccion: e.target.value})}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowClienteModal(false)} disabled={isSubmittingCliente}>
+            Cancelar
+          </Button>
+          <Button variant="success" onClick={handleGuardarCliente} disabled={isSubmittingCliente || !formCliente.nombre}>
+            {isSubmittingCliente ? <Spinner size="sm" animation="border"/> : "Guardar Cliente"}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
     </div>
   );
 };

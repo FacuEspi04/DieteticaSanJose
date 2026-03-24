@@ -13,6 +13,27 @@ export interface CreateCategoriaDto {
   nombre: string;
 }
 
+// --- Tipos de Clientes ---
+export interface Cliente {
+  id: number;
+  nombre: string;
+  telefono: string | null;
+  email: string | null;
+  direccion: string | null;
+  limiteCredito: number | null;
+  createdAt: Date;
+}
+
+export interface CreateClienteDto {
+  nombre: string;
+  telefono?: string;
+  email?: string;
+  direccion?: string;
+  limiteCredito?: number;
+}
+
+export type UpdateClienteDto = Partial<CreateClienteDto>;
+
 // --- 1. NUEVOS TIPOS DE MARCA ---
 export interface Marca {
   id: number;
@@ -263,6 +284,60 @@ export const createCategoria = async (
     throw new Error(
       errorData.message.join(', ') || 'Error al crear la categoría',
     );
+  }
+  return await response.json();
+};
+
+// --- Servicios de Clientes ---
+
+export const getClientes = async (): Promise<Cliente[]> => {
+  const response = await fetch(`${API_URL}/clientes`);
+  if (!response.ok) {
+    throw new Error('Error al obtener los clientes');
+  }
+  return await response.json();
+};
+
+export const createCliente = async (
+  clienteData: CreateClienteDto,
+): Promise<Cliente> => {
+  const response = await fetch(`${API_URL}/clientes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(clienteData),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message.join?.(', ') || errorData.message || 'Error al crear el cliente');
+  }
+  return await response.json();
+};
+
+export const updateCliente = async (
+  id: number,
+  clienteData: UpdateClienteDto,
+): Promise<Cliente> => {
+  const response = await fetch(`${API_URL}/clientes/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(clienteData),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message.join?.(', ') || errorData.message || 'Error al actualizar el cliente');
+  }
+  return await response.json();
+};
+
+export const deleteCliente = async (
+  id: number,
+): Promise<{ message: string }> => {
+  const response = await fetch(`${API_URL}/clientes/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Error al eliminar el cliente');
   }
   return await response.json();
 };

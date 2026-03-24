@@ -21,8 +21,9 @@ import {
   type CreateVentaDto,
   type CreateVentaItemDto,
   type FormaPago,
-  type VentaEstado,
-  type Articulo,
+  getClientes,
+  createCliente,
+  type Cliente,
 } from "../../services/apiService";
 
 // El tipo de Articulo que usa este componente
@@ -54,7 +55,12 @@ const RegistrarVenta: React.FC = () => {
   const [error, setError] = useState("");
   const [exito, setExito] = useState("");
   const [nombreCliente, setNombreCliente] = useState("");
+  const [clienteIdSeleccionado, setClienteIdSeleccionado] = useState<number | "">("");
   const [catalogoArticulos, setCatalogoArticulos] = useState<ArticuloVenta[]>([]);
+  const [listaClientes, setListaClientes] = useState<Cliente[]>([]);
+  const [showModalCliente, setShowModalCliente] = useState(false);
+  const [nuevoClienteNombre, setNuevoClienteNombre] = useState("");
+  const [isCreatingCliente, setIsCreatingCliente] = useState(false);
   
   const [formaPago, setFormaPago] = useState<FormaPago>("efectivo");
   const [interesPorcentaje, setInteresPorcentaje] = useState<string>("10");
@@ -68,24 +74,22 @@ const RegistrarVenta: React.FC = () => {
 
   // Cargar artículos desde la API
   useEffect(() => {
-    const cargarCatalogo = async () => {
+    const cargarDatos = async () => {
       setIsLoading(true);
       try {
-        const apiItems: Articulo[] = await getArticulos();
+        const [apiItems, clientesApi] = await Promise.all([
+          getArticulos(),
+          getClientes()
+        ]);
         
         const mapeados: ArticuloVenta[] = apiItems.map((a) => {
-          // 1. Lógica explicita para extraer el nombre de la marca
           let nombreMarca = '';
-          
           if (typeof a.marca === 'object' && a.marca !== null) {
-            // Si es objeto, forzamos 'any' para sacar el nombre sin errores
             nombreMarca = (a.marca as any).nombre || '';
           } else {
-            // Si es string o null, lo convertimos a string seguro
             nombreMarca = String(a.marca || '');
           }
 
-          // 2. Retornamos el objeto limpio
           return {
             id: Number(a.id),
             nombre: a.nombre,
@@ -97,17 +101,18 @@ const RegistrarVenta: React.FC = () => {
         });
 
         setCatalogoArticulos(mapeados);
+        setListaClientes(clientesApi || []);
         setError("");
       } catch (e: any) {
-        console.error("Error al cargar artículos:", e);
-        setError("Error al cargar el catálogo. " + e.message);
+        console.error("Error al cargar datos:", e);
+        setError("Error al cargar el catálogo o clientes. " + e.message);
         setCatalogoArticulos([]);
       } finally {
         setIsLoading(false);
       }
     };
     
-    cargarCatalogo();
+    cargarDatos();
   }, []);
 
   // Efecto para cerrar sugerencias si clicamos fuera
@@ -274,8 +279,8 @@ const RegistrarVenta: React.FC = () => {
       setError("No hay productos en la venta");
       return;
     }
-    if (esCtaCte && !nombreCliente.trim()) {
-      setError("El nombre del cliente es obligatorio para Cuenta Corriente");
+    if (esCtaCte && !clienteIdSeleccionado) {
+      setError("Debe seleccionar un cliente para Cuenta Corriente");
       return;
     }
     setShowModal(true);
@@ -290,10 +295,16 @@ const RegistrarVenta: React.FC = () => {
       cantidad: item.cantidad,
     }));
 
-    const estadoVenta: VentaEstado = esCtaCte ? "Pendiente" : "Completada";
-    
+    const clienteEncontrado = esCtaCte && clienteIdSeleccionado 
+      ? listaClientes.find((c) => c.id === clienteIdSeleccionado) 
+      : null;
+
+    const nombreGuardar = clienteEncontrado ? clienteEncontrado.nombre : (nombreCliente.trim() || "Cliente General");
+    const estadoVenta = esCtaCte ? "Pendiente" : "Completada";
+
     const nuevaVenta: CreateVentaDto = {
-      clienteNombre: nombreCliente.trim() || "Cliente General",
+      clienteNombre: nombreGuardar,
+      clienteId: clienteEncontrado ? clienteEncontrado.id : undefined,
       items: itemsDto,
       formaPago: esCtaCte ? null : formaPago, 
       estado: estadoVenta,
@@ -308,6 +319,7 @@ const RegistrarVenta: React.FC = () => {
       
       setItemsVenta([]);
       setNombreCliente("");
+      setClienteIdSeleccionado("");
       setFormaPago("efectivo");
       setEsCtaCte(false);
       setInteresPorcentaje("10");
@@ -339,9 +351,32 @@ const RegistrarVenta: React.FC = () => {
     setItemsVenta([]);
     setCodigoBarras("");
     setNombreCliente("");
+    setClienteIdSeleccionado("");
     setFormaPago("efectivo");
     setEsCtaCte(false);
     setError("");
+  };
+
+  const handleCrearCliente = async () => {
+    if (!nuevoClienteNombre.trim()) {
+      setError("El nombre del cliente es obligatorio");
+      return;
+    }
+    setIsCreatingCliente(true);
+    setError("");
+    try {
+      const nuevoCliente = await createCliente({ nombre: nuevoClienteNombre.trim() });
+      setListaClientes([...listaClientes, nuevoCliente]);
+      setClienteIdSeleccionado(nuevoCliente.id);
+      setShowModalCliente(false);
+      setNuevoClienteNombre("");
+      setExito(`Cliente ${nuevoCliente.nombre} creado con éxito.`);
+      setTimeout(() => setExito(""), 3000);
+    } catch (e: any) {
+      setError(e.message || "Error al crear cliente");
+    } finally {
+      setIsCreatingCliente(false);
+    }
   };
 
   return (
@@ -381,25 +416,48 @@ const RegistrarVenta: React.FC = () => {
             )}
 
             <Form.Group className="mb-3">
-              <Form.Label>Nombre del Cliente {esCtaCte && <span className="text-danger">*</span>}</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Ingresa el nombre del cliente..."
-                value={nombreCliente}
-                onChange={(e) => setNombreCliente(e.target.value)}
-                required={esCtaCte}
-              />
-              {esCtaCte && <Form.Text className="text-danger">El nombre es obligatorio para cuenta corriente</Form.Text>}
-            </Form.Group>
-
-            <Form.Group className="mb-3">
               <Form.Check
                 type="checkbox"
                 label="🏦 Venta en Cuenta Corriente (pago pendiente)"
                 checked={esCtaCte}
-                onChange={(e) => setEsCtaCte(e.target.checked)}
+                onChange={(e) => {
+                   setEsCtaCte(e.target.checked);
+                   if (!e.target.checked) setClienteIdSeleccionado("");
+                }}
               />
             </Form.Group>
+
+            {esCtaCte ? (
+              <Form.Group className="mb-3">
+                <Form.Label>Seleccionar Cliente <span className="text-danger">*</span></Form.Label>
+                <div className="d-flex gap-2">
+                  <Form.Select
+                    value={clienteIdSeleccionado}
+                    onChange={(e) => setClienteIdSeleccionado(e.target.value ? Number(e.target.value) : "")}
+                  >
+                    <option value="">-- Seleccione un cliente --</option>
+                    {listaClientes.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre} {c.telefono ? `(${c.telefono})` : ""}
+                      </option>
+                    ))}
+                  </Form.Select>
+                  <Button variant="outline-primary" onClick={() => setShowModalCliente(true)}>
+                    + Nuevo
+                  </Button>
+                </div>
+              </Form.Group>
+            ) : (
+              <Form.Group className="mb-3">
+                <Form.Label>Nombre del Cliente (Opcional)</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Ingresa el nombre del cliente..."
+                  value={nombreCliente}
+                  onChange={(e) => setNombreCliente(e.target.value)}
+                />
+              </Form.Group>
+            )}
 
             {!esCtaCte && (
               <>
@@ -616,7 +674,12 @@ const RegistrarVenta: React.FC = () => {
           </Modal.Header>
           <Modal.Body>
             <h5 className="mb-3">Resumen de la venta:</h5>
-            <p><strong>Cliente:</strong> {nombreCliente || "Cliente General"}</p>
+            <p>
+              <strong>Cliente:</strong>{" "}
+              {esCtaCte && clienteIdSeleccionado 
+                ? listaClientes.find((c) => c.id === clienteIdSeleccionado)?.nombre 
+                : (nombreCliente || "Cliente General")}
+            </p>
             {esCtaCte ? (
               <Alert variant="warning"><strong>⚠️ CUENTA CORRIENTE - Pago Pendiente</strong></Alert>
             ) : (
@@ -648,6 +711,38 @@ const RegistrarVenta: React.FC = () => {
             <Button variant="secondary" onClick={() => setShowModal(false)} disabled={isSubmitting}>Cancelar</Button>
             <Button variant="success" onClick={procesarVenta} disabled={isSubmitting}>
               {isSubmitting ? <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" /> Procesando...</> : "Confirmar y Procesar"}
+            </Button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* Modal Nuevo Cliente */}
+        <Modal show={showModalCliente} onHide={() => setShowModalCliente(false)} centered>
+          <Modal.Header closeButton>
+            <Modal.Title>Agregar Nuevo Cliente</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form.Group className="mb-3">
+              <Form.Label>Nombre Completo <span className="text-danger">*</span></Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="Ej: Juan Pérez"
+                value={nuevoClienteNombre}
+                onChange={(e) => setNuevoClienteNombre(e.target.value)}
+                autoFocus
+              />
+            </Form.Group>
+            <Alert variant="info" className="py-2">
+              <small>
+                Podrás completar más datos de este cliente desde la sección <strong>Cuentas Corrientes</strong>.
+              </small>
+            </Alert>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowModalCliente(false)} disabled={isCreatingCliente}>
+              Cancelar
+            </Button>
+            <Button variant="primary" onClick={handleCrearCliente} disabled={isCreatingCliente || !nuevoClienteNombre.trim()}>
+              {isCreatingCliente ? <Spinner size="sm" animation="border" /> : "Guardar Cliente"}
             </Button>
           </Modal.Footer>
         </Modal>
