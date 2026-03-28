@@ -1,16 +1,13 @@
 {
-  
+  "name": "dietetica-san-jose",
+  "version": "1.0.0",
   "dependencies": {
     "better-sqlite3": "^11.0.0"
   },
-  
   "bin": "backend/dist/main.js",
   "pkg": {
-    "scripts": [
-      "backend/dist/**/*.js"
-    ],
     "assets": [
-      "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
+      "backend/node_modules/better-sqlite3/build/Release/better_sqlite3.node",
       "backend/public/**/*"
     ],
     "targets": [
@@ -18,6 +15,7 @@
     ]
   },
   "devDependencies": {
-    "@yao-pkg/pkg": "^5.15.0"
+    "@yao-pkg/pkg": "^5.15.0",
+    "ts-loader": "^9.5.4"
   }
 }

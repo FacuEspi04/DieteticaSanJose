@@ -38,7 +38,7 @@ import { MarcasModule } from './marcas/marcas.module';
     // --- ¡Paso 2: CONFIGURA TYPEORM MANUALMENTE! ---
     TypeOrmModule.forRoot({
       type: 'better-sqlite3',
-      database: 'dietetica.db',
+      database: process.env.DB_PATH || join(process.cwd(), 'dietetica.db'),
       
       // Reemplazamos 'autoLoadEntities' por 'entities'
       // autoLoadEntities: true, // <--- BORRA ESTA LÍNEA

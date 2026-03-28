@@ -62,7 +62,7 @@
 /* Main content */
 .main-content {
   flex-grow: 1;
- padding-top: 15px;
+  padding-top: 15px;
   padding-left: 1rem;
   padding-right: 1rem;
   background-color: var(--color-slate-50);

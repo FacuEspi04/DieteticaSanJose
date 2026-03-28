@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module'; 
+import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { exec } from 'child_process';
 
@@ -32,7 +32,7 @@ async function bootstrap() {
     
     // Comando para abrir el navegador según el sistema operativo
     // 'pkg' se ejecuta en un .exe, por lo que 'process.platform' será 'win32'
-    if (process.platform === 'win32') {
+    if (!process.env.ELECTRON_RUN && process.platform === 'win32') {
       // Usar 'start' en Windows
       exec(`start ${url}`);
     } 

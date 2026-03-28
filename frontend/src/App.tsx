@@ -24,9 +24,7 @@ function App() {
         <Route
           path="/"
           element={
-            <Layout 
-              brand="Dietética San José"
-            />
+            <Layout />
           }
         >
           {/* Ruta de inicio */}
