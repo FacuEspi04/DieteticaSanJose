@@ -35,6 +35,7 @@ import {
 } from '../../services/apiService';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatearMoneda } from "../../utils/formatters";
 
 const VentasList: React.FC = () => {
   const navigate = useNavigate();

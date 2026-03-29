@@ -71,8 +71,12 @@ const AgregarArticulo: React.FC = () => {
           getCategorias(),
           getMarcas(),
         ]);
-        setCategorias(categoriasData);
-        setMarcas(marcasData);
+        
+        const categoriasOrdenadas = categoriasData.sort((a, b) => a.nombre.localeCompare(b.nombre));
+        const marcasOrdenadas = marcasData.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+        setCategorias(categoriasOrdenadas);
+        setMarcas(marcasOrdenadas);
         setError('');
       } catch (err: any) {
         console.error('Error al cargar datos:', err);
@@ -236,9 +240,20 @@ const AgregarArticulo: React.FC = () => {
     try {
       await createArticulo(nuevoArticulo);
       setExito(true);
+      
       setTimeout(() => {
-        navigate('/articulos');
+        setExito(false);
       }, 2000);
+
+      // Limpiar formulario excepto categoría y marca
+      setFormData(prev => ({
+        ...prev,
+        nombre: '',
+        precio: '',
+        stock: '',
+        stockMinimo: ''
+      }));
+      generarCodigoBarras();
     } catch (apiError: any) {
       console.error('Error al guardar artículo:', apiError);
       setError(apiError.message || 'Error al guardar el artículo.');
@@ -274,7 +289,7 @@ const AgregarArticulo: React.FC = () => {
             {exito && (
               <Alert variant="success" className="d-flex align-items-center">
                 <CheckCircle size={20} className="me-2" />
-                ¡Artículo agregado exitosamente! Redirigiendo...
+                ¡Artículo agregado exitosamente! Listo para el siguiente...
               </Alert>
             )}
 

@@ -25,6 +25,7 @@ import {
   type CreateClienteDto
 } from "../../services/apiService";
 import { useNavigate } from "react-router-dom";
+import { formatearMoneda } from "../../utils/formatters";
 
 const CuentasCorrientes: React.FC = () => {
   const navigate = useNavigate();

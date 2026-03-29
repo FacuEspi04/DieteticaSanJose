@@ -89,8 +89,12 @@ const EditarArticulo: React.FC = () => {
           stockMinimo: String(articuloData.stock_minimo),
           categoriaId: String(articuloData.categoria?.id || ''),
         });
-        setCategorias(categoriasData);
-        setMarcas(marcasData);
+        
+        const categoriasOrdenadas = categoriasData.sort((a, b) => a.nombre.localeCompare(b.nombre));
+        const marcasOrdenadas = marcasData.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+        setCategorias(categoriasOrdenadas);
+        setMarcas(marcasOrdenadas);
       } catch (err: any) {
         console.error('Error al cargar datos:', err);
         setError(err.message || 'No se pudieron cargar los datos.');
