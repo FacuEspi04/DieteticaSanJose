@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 
 import { CreatePedidoDto } from './dto/create-pedido.dto';
+import { UpdatePedidoDto } from './dto/update-pedido.dto';
 import { Articulo } from 'src/articulos/articulo.entity';
 import { PedidoDetalle } from './pedido-detalle.entity';
 import { Pedido } from './pedido.entity';
@@ -68,7 +69,7 @@ export class PedidosService {
       pedido.notas = notas || null;
       pedido.fechaPedido = new Date();
       pedido.total = totalPedido;
-      pedido.estado = 'Pendiente';
+      pedido.estado = createPedidoDto.estado || 'Pendiente';
 
       const pedidoGuardado = await queryRunner.manager.save(pedido);
 
@@ -163,5 +164,54 @@ export class PedidosService {
       await queryRunner.release();
     }
   }
+
+  async update(id: number, updatePedidoDto: UpdatePedidoDto): Promise<Pedido> {
+    const pedido = await this.findOne(id);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      if (updatePedidoDto.proveedorId) pedido.proveedorId = updatePedidoDto.proveedorId;
+      if (updatePedidoDto.notas !== undefined) pedido.notas = updatePedidoDto.notas;
+      if (updatePedidoDto.estado) pedido.estado = updatePedidoDto.estado;
+
+      if (updatePedidoDto.items && updatePedidoDto.items.length > 0) {
+        await queryRunner.manager.delete(PedidoDetalle, { pedidoId: id });
+        
+        let totalPedido = 0;
+        for (const itemDto of updatePedidoDto.items) {
+          const articulo = await this.articuloRepository.findOneBy({ id: itemDto.articuloId });
+          if (!articulo) continue;
+
+          const precioUnitario = Number(articulo.precio);
+          const subtotal = precioUnitario * itemDto.cantidad;
+          totalPedido += subtotal;
+
+          const detalle = new PedidoDetalle();
+          detalle.pedidoId = pedido.id;
+          detalle.articuloId = itemDto.articuloId;
+          detalle.cantidad = itemDto.cantidad;
+          detalle.precioUnitario = precioUnitario;
+          detalle.subtotal = subtotal;
+
+          await queryRunner.manager.save(detalle);
+        }
+        pedido.total = totalPedido;
+      }
+
+      const pedidoActualizado = await queryRunner.manager.save(pedido);
+      await queryRunner.commitTransaction();
+      
+      this.logger.log(`Pedido #${pedidoActualizado.id} actualizado exitosamente.`);
+      return this.findOne(pedidoActualizado.id);
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
 }
+
 

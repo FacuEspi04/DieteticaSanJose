@@ -20,6 +20,10 @@ export class CreatePedidoDto {
   @IsOptional()
   notas?: string;
 
+  @IsString()
+  @IsOptional()
+  estado?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreatePedidoItemDto)

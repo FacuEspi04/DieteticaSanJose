@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Body,
   Param,
   ParseIntPipe,
@@ -13,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { PedidosService } from './pedidos.service';
 import { CreatePedidoDto } from './dto/create-pedido.dto';
+import { UpdatePedidoDto } from './dto/update-pedido.dto';
 
 @Controller('api/pedidos')
 export class PedidosController {
@@ -43,6 +45,14 @@ export class PedidosController {
   @HttpCode(HttpStatus.OK) // Devolver 200 OK
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.pedidosService.remove(id);
+  }
+
+  @Put(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(new ValidationPipe()) updatePedidoDto: UpdatePedidoDto,
+  ) {
+    return this.pedidosService.update(id, updatePedidoDto);
   }
 }
 

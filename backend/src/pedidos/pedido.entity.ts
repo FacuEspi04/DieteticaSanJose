@@ -24,7 +24,7 @@ export class Pedido {
 
   @Column({
     type: 'varchar', // <-- LÍNEA AÑADIDA
-    enum: ['Pendiente', 'En_Transito', 'Recibido', 'Cancelado'],
+    enum: ['Borrador', 'Pendiente', 'En_Transito', 'Recibido', 'Cancelado'],
     default: 'Pendiente',
   })
   estado: string;
