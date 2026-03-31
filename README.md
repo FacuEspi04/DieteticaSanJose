@@ -1,27 +1,42 @@
+Sistema de Gestión Integral (POS)
+Software Full Stack diseñado para la digitalización y optimización del flujo operativo en comercios minoristas. El sistema centraliza la facturación, el control de inventario y la relación con proveedores en una plataforma robusta, ágil y escalable.
 
-# Sistema de Gestión Integral (POS) - Dietética San José
+Características Principales
+Punto de Venta Inteligente (Smart POS)
+Interfaz de facturación de alta velocidad diseñada para optimizar la atención al cliente:
 
-Aplicación web Full Stack diseñada para digitalizar y optimizar el flujo operativo de un comercio de alimentos naturales. El sistema centraliza la gestión de inventario, la relación con proveedores y el punto de venta, ofreciendo una solución robusta para la administración diaria del local.
+Entrada Híbrida: Detección inteligente entre lector de códigos de barras para productos envasados y búsqueda predictiva para artículos por unidad o peso.
 
-## Características Principales
+Validación de Stock: Control automático en tiempo real durante la carga de productos para asegurar la integridad de las existencias.
 
-* **Punto de Venta Híbrido (Smart POS):** Interfaz de facturación optimizada que unifica la entrada de datos. Permite la carga ágil mediante **lector de códigos de barras** (hardware) para productos envasados o **búsqueda predictiva** para productos a granel, visualizando stock y precio en tiempo real.
-* **Gestión de Inventario y Proveedores:** Módulo integral para el control de stock y la generación de pedidos a proveedores, facilitando la reposición de mercadería y el control de costos.
-* **Cuentas Corrientes:** Sistema de registro de deudas y pagos pendientes ("fiado") asociados a clientes específicos, con seguimiento de saldos.
-* **Lógica Financiera y Turnos:**
-    * Cálculo automático de recargos por intereses según el método de pago (Tarjetas de Crédito).
-    * Asignación automática de ventas a turnos operativos ("Mañana" o "Tarde") mediante algoritmos de normalización horaria en el Backend.
+Gestión de Inventario y Proveedores
+Control de Stock Crítico: Monitoreo constante de niveles de mercadería con alertas de reposición configurables.
 
-## Stack Tecnológico
+Módulo de Proveedores: Registro histórico de compras y gestión de costos para mantener actualizados los márgenes de ganancia.
 
-* **Frontend:** React, TypeScript, React-Bootstrap (UI), Vite.
-* **Backend:** NestJS (Arquitectura modular y escalable).
-* **ORM:** TypeORM para el modelado de datos y relaciones.
-* **Base de Datos:** **SQLite**. Seleccionada por su eficiencia en despliegues locales (On-Premise), bajo consumo de recursos y facilidad para la gestión de copias de seguridad (Backups) sin requerir un servidor dedicado.
+Finanzas y Cuentas Corrientes
+Gestión de Crédito a Clientes: Sistema de cuentas corrientes para clientes recurrentes con seguimiento detallado de saldos y pagos.
 
-## Destacado Técnico: UI y UX Optimizada
+Lógica de Recargos Dinámica: Cálculo automático de intereses según el método de pago (débito, crédito o efectivo) configurado en el sistema.
 
-1. **UX en el Proceso de Cobro:** Se optimizó radicalmente la velocidad en caja mediante un campo de entrada híbrido. Detecta automáticamente si el origen es teclado (despliega sugerencias predictivas y validación de stock) o si es un Escáner HID (añade el producto al instante).
-2. **Diseño Moderno tipo SaaS:** Interfaz minimalista construida con Tailwind CSS y React-Bootstrap, totalmente responsiva (Mobile First) con menús dinámicos adaptables que prioriza el flujo de trabajo sin distracciones.
-3. **Manejo de estados:** Se centraliza el manejo de conflictos de tipos de datos complejos provenientes de la API para asegurar una experiencia de usuario fluida y libre de errores.
+Control de Turnos Operativos: Algoritmo de normalización horaria que asigna automáticamente cada transacción al turno correspondiente.
 
+Stack Tecnológico
+El proyecto utiliza una arquitectura desacoplada para garantizar estabilidad y facilidad de mantenimiento:
+
+Frontend: React 18, TypeScript, Vite, React-Bootstrap, Tailwind CSS.
+
+Backend: NestJS (Arquitectura Modular), Node.js.
+
+Persistencia: SQLite (Optimizado para despliegues locales, portabilidad y copias de seguridad rápidas).
+
+ORM: TypeORM para el modelado de datos y relaciones complejas.
+
+Destacados Técnicos
+Arquitectura On-Premise: La elección de SQLite permite que el comercio opere sin dependencia de servidores de base de datos externos, facilitando la seguridad de los datos locales.
+
+Optimización de UI/UX: Diseño responsivo Mobile First que permite la gestión del inventario y la visualización de reportes desde cualquier dispositivo.
+
+Integridad y Validación: Implementación de DTOs (Data Transfer Objects) y validaciones estrictas en el Backend para asegurar la precisión de los datos.
+
+Diseño Modular: Estructura preparada para la integración de nuevos módulos, permitiendo adaptar el software a las necesidades específicas de distintos rubros comerciales.
