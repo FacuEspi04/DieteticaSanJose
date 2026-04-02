@@ -1,6 +1,12 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Layout from './components/Layout';
+import { LicenseProvider } from './context/LicenseContext';
+import BloqueoLicenciaModal from './components/common/BloqueoLicenciaModal';
+import SuspendidaLicenciaModal from './components/common/SuspendidaLicenciaModal';
+import GlobalWarningToast from './components/common/GlobalWarningToast';
+import ProtectedRoute from './components/common/ProtectedRoute';
+import LoginScreen from './components/LoginScreen';
 import Inicio from './components/Inicio';
 import ArticuloDetail from './components/articulos/ArticuloDetail';
 import ArticuloList from './components/articulos/ArticuloList';
@@ -19,14 +25,22 @@ import RegistrarRetiro from './components/caja/RegistrarRetiro';
 
 function App() {
   return (
-    <Router>
+    <LicenseProvider>
+      <Router>
+      <BloqueoLicenciaModal />
+      <SuspendidaLicenciaModal />
+      <GlobalWarningToast />
       <Routes>
-        <Route
-          path="/"
-          element={
-            <Layout />
-          }
-        >
+        <Route path="/login" element={<LoginScreen />} />
+        
+        {/* Rutas Privadas */}
+        <Route element={<ProtectedRoute />}>
+          <Route
+            path="/"
+            element={
+              <Layout />
+            }
+          >
           {/* Ruta de inicio */}
           <Route index element={<Inicio />} />
 
@@ -46,9 +60,11 @@ function App() {
           <Route path="ventas/nueva" element={<RegistrarVenta />} />
           <Route path="ventas/cuentas-corrientes" element={<CuentasCorrientes />} />
           <Route path="/ventas/nuevo-retiro" element={<RegistrarRetiro />} />
+          </Route>
         </Route>
       </Routes>
     </Router>
+    </LicenseProvider>
   );
 }
 

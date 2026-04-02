@@ -6,6 +6,7 @@ import {
   ShoppingCart,
   ClipboardList,
 } from 'lucide-react';
+import LicenseStatusBadge from './common/LicenseStatusBadge';
 
 interface LayoutProps {
   navLinks?: { name: string; path: string }[];
@@ -35,7 +36,7 @@ const Layout: React.FC<LayoutProps> = ({
           <Navbar.Toggle aria-controls="main-navbar-nav" className="border-0 shadow-none mx-auto mt-2 mb-2" />
           
           <Navbar.Collapse id="main-navbar-nav" className="justify-content-center">
-            <Nav className="gap-2 text-center my-2 my-md-0">
+            <Nav className="mx-auto gap-3 gap-md-4 text-center my-2 my-md-0">
               {navLinks.map((link, index) => {
                 return (
                   <NavLink
@@ -51,6 +52,9 @@ const Layout: React.FC<LayoutProps> = ({
                 );
               })}
             </Nav>
+            <div className="d-flex align-items-center ms-md-auto justify-content-center mt-3 mt-md-0">
+              <LicenseStatusBadge />
+            </div>
           </Navbar.Collapse>
         </Container>
       </Navbar>

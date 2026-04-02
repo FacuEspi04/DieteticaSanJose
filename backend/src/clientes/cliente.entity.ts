@@ -1,6 +1,7 @@
 import {
   Column,
   CreateDateColumn,
+  UpdateDateColumn,
   Entity,
   PrimaryGeneratedColumn,
 } from 'typeorm';
@@ -33,5 +34,11 @@ export class Cliente {
 
   @CreateDateColumn({ name: 'created_at' }) // <-- CAMBIO: Quitado "type: 'datetime'"
   createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+
+  @Column({ type: 'boolean', default: false })
+  sincronizado: boolean;
 }
 

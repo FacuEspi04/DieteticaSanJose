@@ -1,8 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { ScheduleModule } from '@nestjs/schedule';
 import { join } from 'path';
+import { existsSync } from 'fs';
 
 // Entidades
 import { Articulo } from './articulos/articulo.entity';
@@ -27,13 +29,25 @@ import { VentasModule } from './ventas/ventas.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { RetirosModule } from './retiros/retiros.module';
 import { MarcasModule } from './marcas/marcas.module';
-
+import { SyncModule } from './sync/sync.module';
+import { ConfiguracionModule } from './configuracion/configuracion.module';
+import { Configuracion } from './configuracion/configuracion.entity';
+import { LicenciaMiddleware } from './common/middlewares/licencia.middleware';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: (() => {
+        const executableEnvPath = join(process.cwd(), '.env');
+        const backendEnvPath = join(__dirname, '..', '.env');
+        if (existsSync(executableEnvPath)) return executableEnvPath;
+        if (existsSync(backendEnvPath)) return backendEnvPath;
+        return undefined;
+      })(),
     }),
+    ScheduleModule.forRoot(),
     
     // --- ¡Paso 2: CONFIGURA TYPEORM MANUALMENTE! ---
     TypeOrmModule.forRoot({
@@ -53,6 +67,7 @@ import { MarcasModule } from './marcas/marcas.module';
         VentaDetalle, // (Asegúrate de importar todas)
         Cliente,
         Retiro,
+        Configuracion,
       ],
       
       synchronize: true, 
@@ -67,6 +82,9 @@ import { MarcasModule } from './marcas/marcas.module';
     ClientesModule,
     RetirosModule,
     MarcasModule,
+    SyncModule,
+    ConfiguracionModule,
+    AuthModule,
 
     // --- Módulo de React (Frontend) AL FINAL ---
     ServeStaticModule.forRoot({
@@ -77,5 +95,11 @@ import { MarcasModule } from './marcas/marcas.module';
   //controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(LicenciaMiddleware)
+      .forRoutes('*');
+  }
+}
 

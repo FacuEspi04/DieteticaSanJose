@@ -5,8 +5,12 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "bin": "dist/main.js",
   "scripts": {
+    "prepare:public": "node scripts/prepare-public.cjs",
+    "db:clean": "ts-node -r tsconfig-paths/register src/scripts/reset-db.ts",
     "build": "nest build",
+    "pkg:win": "npm run prepare:public && npm run build && pkg . --targets node20-win-x64 --output dist-pkg/servidor-pos.exe",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -20,13 +24,16 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/schedule": "^6.1.1",
     "@nestjs/serve-static": "^5.0.4",
     "@nestjs/typeorm": "^11.0.0",
+    "axios": "^1.14.0",
     "better-sqlite3": "^11.7.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
@@ -37,6 +44,7 @@
     "typeorm": "^0.3.27"
   },
   "devDependencies": {
+    "@yao-pkg/pkg": "^5.15.0",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@nestjs/cli": "^11.0.0",
@@ -61,6 +69,16 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
+  },
+  "pkg": {
+    "targets": [
+      "node20-win-x64"
+    ],
+    "assets": [
+      "public/**/*",
+      "node_modules/better-sqlite3/build/Release/better_sqlite3.node",
+      ".env"
+    ]
   },
   "jest": {
     "moduleFileExtensions": [

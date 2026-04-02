@@ -65,6 +65,9 @@ export class Articulo {
   @Column({ type: 'boolean', default: true })
   activo: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  sincronizado: boolean;
+
   @CreateDateColumn({ name: 'created_at' }) // <-- 
   createdAt: Date;
 

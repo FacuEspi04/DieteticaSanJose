@@ -1,6 +1,11 @@
 {
   "name": "dietetica-san-jose",
   "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:frontend": "npm --prefix frontend run build",
+    "build:backend:exe": "npm run build:frontend && npm --prefix backend run pkg:win"
+  },
   "dependencies": {
     "better-sqlite3": "^11.0.0"
   },

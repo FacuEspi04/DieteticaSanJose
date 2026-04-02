@@ -1,6 +1,8 @@
 // Definimos la URL base de la API
 const API_URL = 'http://localhost:3000/api';
 
+import { apiFetch } from '../utils/apiFetch';
+
 // --- Tipos Compartidos ---
 
 export interface Categoria {
@@ -209,7 +211,7 @@ export const getArticulos = async (search?: string): Promise<Articulo[]> => {
   const url = search
     ? `${API_URL}/articulos?search=${search}`
     : `${API_URL}/articulos`;
-  const response = await fetch(url);
+  const response = await apiFetch(url);
   if (!response.ok) {
     throw new Error('Error al obtener los artículos');
   }
@@ -217,7 +219,7 @@ export const getArticulos = async (search?: string): Promise<Articulo[]> => {
 };
 
 export const getArticuloById = async (id: number): Promise<Articulo> => {
-  const response = await fetch(`${API_URL}/articulos/${id}`);
+  const response = await apiFetch(`${API_URL}/articulos/${id}`);
   if (!response.ok) {
     throw new Error(`Error al obtener el artículo #${id}`);
   }
@@ -227,7 +229,7 @@ export const getArticuloById = async (id: number): Promise<Articulo> => {
 export const createArticulo = async (
   articuloData: CreateArticuloDto,
 ): Promise<Articulo> => {
-  const response = await fetch(`${API_URL}/articulos`, {
+  const response = await apiFetch(`${API_URL}/articulos`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(articuloData),
@@ -242,7 +244,7 @@ export const updateArticulo = async (
   id: number,
   articuloData: UpdateArticuloDto,
 ): Promise<Articulo> => {
-  const response = await fetch(`${API_URL}/articulos/${id}`, {
+  const response = await apiFetch(`${API_URL}/articulos/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(articuloData),
@@ -256,7 +258,7 @@ export const updateArticulo = async (
 export const deleteArticulo = async (
   id: number,
 ): Promise<{ message: string }> => {
-  const response = await fetch(`${API_URL}/articulos/${id}`, {
+  const response = await apiFetch(`${API_URL}/articulos/${id}`, {
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -268,7 +270,7 @@ export const deleteArticulo = async (
 // --- Servicios de Categorías ---
 
 export const getCategorias = async (): Promise<Categoria[]> => {
-  const response = await fetch(`${API_URL}/categorias`);
+  const response = await apiFetch(`${API_URL}/categorias`);
   if (!response.ok) {
     throw new Error('Error al obtener las categorías');
   }
@@ -279,7 +281,7 @@ export const getCategorias = async (): Promise<Categoria[]> => {
 export const createCategoria = async (
   categoriaData: CreateCategoriaDto,
 ): Promise<Categoria> => {
-  const response = await fetch(`${API_URL}/categorias`, {
+  const response = await apiFetch(`${API_URL}/categorias`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(categoriaData),
@@ -297,7 +299,7 @@ export const createCategoria = async (
 // --- Servicios de Clientes ---
 
 export const getClientes = async (): Promise<Cliente[]> => {
-  const response = await fetch(`${API_URL}/clientes`);
+  const response = await apiFetch(`${API_URL}/clientes`);
   if (!response.ok) {
     throw new Error('Error al obtener los clientes');
   }
@@ -307,7 +309,7 @@ export const getClientes = async (): Promise<Cliente[]> => {
 export const createCliente = async (
   clienteData: CreateClienteDto,
 ): Promise<Cliente> => {
-  const response = await fetch(`${API_URL}/clientes`, {
+  const response = await apiFetch(`${API_URL}/clientes`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(clienteData),
@@ -323,7 +325,7 @@ export const updateCliente = async (
   id: number,
   clienteData: UpdateClienteDto,
 ): Promise<Cliente> => {
-  const response = await fetch(`${API_URL}/clientes/${id}`, {
+  const response = await apiFetch(`${API_URL}/clientes/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(clienteData),
@@ -338,7 +340,7 @@ export const updateCliente = async (
 export const deleteCliente = async (
   id: number,
 ): Promise<{ message: string }> => {
-  const response = await fetch(`${API_URL}/clientes/${id}`, {
+  const response = await apiFetch(`${API_URL}/clientes/${id}`, {
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -350,7 +352,7 @@ export const deleteCliente = async (
 
 // --- 2. NUEVOS SERVICIOS DE MARCAS ---
 export const getMarcas = async (): Promise<Marca[]> => {
-  const response = await fetch(`${API_URL}/marcas`);
+  const response = await apiFetch(`${API_URL}/marcas`);
   if (!response.ok) {
     throw new Error('Error al obtener las marcas');
   }
@@ -360,7 +362,7 @@ export const getMarcas = async (): Promise<Marca[]> => {
 export const createMarca = async (
   marcaData: CreateMarcaDto,
 ): Promise<Marca> => {
-  const response = await fetch(`${API_URL}/marcas`, {
+  const response = await apiFetch(`${API_URL}/marcas`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(marcaData),
@@ -376,7 +378,7 @@ export const createMarca = async (
 // --- Servicios de Proveedores ---
 
 export const getProveedores = async (): Promise<Proveedor[]> => {
-  const response = await fetch(`${API_URL}/proveedores`);
+  const response = await apiFetch(`${API_URL}/proveedores`);
   if (!response.ok) {
     throw new Error('Error al obtener los proveedores');
   }
@@ -386,7 +388,7 @@ export const getProveedores = async (): Promise<Proveedor[]> => {
 export const createProveedor = async (
   proveedorData: CreateProveedorDto,
 ): Promise<Proveedor> => {
-  const response = await fetch(`${API_URL}/proveedores`, {
+  const response = await apiFetch(`${API_URL}/proveedores`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(proveedorData),
@@ -406,7 +408,7 @@ export const updateProveedor = async (
   id: number,
   proveedorData: UpdateProveedorDto,
 ): Promise<Proveedor> => {
-  const response = await fetch(`${API_URL}/proveedores/${id}`, {
+  const response = await apiFetch(`${API_URL}/proveedores/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(proveedorData),
@@ -422,7 +424,7 @@ export const updateProveedor = async (
 };
 
 export const getProveedorById = async (id: number): Promise<Proveedor> => {
-  const response = await fetch(`${API_URL}/proveedores/${id}`);
+  const response = await apiFetch(`${API_URL}/proveedores/${id}`);
   if (!response.ok) {
     throw new Error(`Error al obtener el proveedor #${id}`);
   }
@@ -432,7 +434,7 @@ export const getProveedorById = async (id: number): Promise<Proveedor> => {
 export const deleteProveedor = async (
   id: number,
 ): Promise<{ message: string }> => {
-  const response = await fetch(`${API_URL}/proveedores/${id}`, {
+  const response = await apiFetch(`${API_URL}/proveedores/${id}`, {
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -455,7 +457,7 @@ export const getPedidos = async (
   if (desde) params.append('desde', desde);
   if (hasta) params.append('hasta', hasta);
 
-  const response = await fetch(`${API_URL}/pedidos?${params.toString()}`);
+  const response = await apiFetch(`${API_URL}/pedidos?${params.toString()}`);
   if (!response.ok) {
     throw new Error('Error al obtener los pedidos');
   }
@@ -463,7 +465,7 @@ export const getPedidos = async (
 };
 
 export const getPedidoById = async (id: number): Promise<Pedido> => {
-  const response = await fetch(`${API_URL}/pedidos/${id}`);
+  const response = await apiFetch(`${API_URL}/pedidos/${id}`);
   if (!response.ok) {
     throw new Error(`Error al obtener el pedido #${id}`);
   }
@@ -473,7 +475,7 @@ export const getPedidoById = async (id: number): Promise<Pedido> => {
 export const createPedido = async (
   pedidoData: CreatePedidoDto,
 ): Promise<Pedido> => {
-  const response = await fetch(`${API_URL}/pedidos`, {
+  const response = await apiFetch(`${API_URL}/pedidos`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(pedidoData),
@@ -492,7 +494,7 @@ export const updatePedido = async (
   id: number,
   pedidoData: Partial<CreatePedidoDto>,
 ): Promise<Pedido> => {
-  const response = await fetch(`${API_URL}/pedidos/${id}`, {
+  const response = await apiFetch(`${API_URL}/pedidos/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(pedidoData),
@@ -512,7 +514,7 @@ export const updatePedido = async (
 export const deletePedido = async (
   id: number,
 ): Promise<{ message: string }> => {
-  const response = await fetch(`${API_URL}/pedidos/${id}`, {
+  const response = await apiFetch(`${API_URL}/pedidos/${id}`, {
     method: 'DELETE',
   });
   if (!response.ok) {
@@ -525,7 +527,7 @@ export const deletePedido = async (
 // --- Servicios de Ventas (Actualizados) ---
 
 export const getVentasPorFecha = async (fecha: string): Promise<Venta[]> => {
-  const response = await fetch(`${API_URL}/ventas?fecha=${fecha}`);
+  const response = await apiFetch(`${API_URL}/ventas?fecha=${fecha}`);
   if (!response.ok) {
     throw new Error('Error al obtener las ventas');
   }
@@ -533,7 +535,7 @@ export const getVentasPorFecha = async (fecha: string): Promise<Venta[]> => {
 };
 
 export const getVentasPendientes = async (): Promise<Venta[]> => {
-  const response = await fetch(`${API_URL}/ventas/pendientes`);
+  const response = await apiFetch(`${API_URL}/ventas/pendientes`);
   if (!response.ok) {
     throw new Error('Error al obtener las ventas pendientes');
   }
@@ -541,7 +543,7 @@ export const getVentasPendientes = async (): Promise<Venta[]> => {
 };
 
 export const createVenta = async (ventaData: CreateVentaDto): Promise<Venta> => {
-  const response = await fetch(`${API_URL}/ventas`, {
+  const response = await apiFetch(`${API_URL}/ventas`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(ventaData),
@@ -559,7 +561,7 @@ export const registrarPagoVenta = async (
   ventaId: number, // Usamos el 'id'
   pagoData: RegistrarPagoDto,
 ): Promise<Venta> => {
-  const response = await fetch(`${API_URL}/ventas/${ventaId}/pagar`, {
+  const response = await apiFetch(`${API_URL}/ventas/${ventaId}/pagar`, {
     // Usamos el 'id'
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -575,7 +577,7 @@ export const registrarPagoVenta = async (
 export const deleteVenta = async (
   ventaId: number, // Usamos el 'id'
 ): Promise<{ message: string; ventaEliminada: number }> => {
-  const response = await fetch(`${API_URL}/ventas/${ventaId}`, {
+  const response = await apiFetch(`${API_URL}/ventas/${ventaId}`, {
     // Usamos el 'id'
     method: 'DELETE',
   });
@@ -589,7 +591,7 @@ export const deleteVenta = async (
 // --- Servicios de Retiros ---
 
 export const getRetirosPorFecha = async (fecha: string): Promise<Retiro[]> => {
-  const response = await fetch(`${API_URL}/retiros?fecha=${fecha}`);
+  const response = await apiFetch(`${API_URL}/retiros?fecha=${fecha}`);
   if (!response.ok) {
     throw new Error('Error al obtener los retiros');
   }
@@ -599,7 +601,7 @@ export const getRetirosPorFecha = async (fecha: string): Promise<Retiro[]> => {
 export const createRetiro = async (
   retiroData: CreateRetiroDto,
 ): Promise<Retiro> => {
-  const response = await fetch(`${API_URL}/retiros`, {
+  const response = await apiFetch(`${API_URL}/retiros`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(retiroData),
@@ -623,7 +625,7 @@ export interface PagoClienteDto {
 
 export const registrarPagoCliente = async (pagoData: PagoClienteDto) => {
   
-  const response = await fetch(`${API_URL}/ventas/pagar-cuenta`, {
+  const response = await apiFetch(`${API_URL}/ventas/pagar-cuenta`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(pagoData),
@@ -633,5 +635,30 @@ export const registrarPagoCliente = async (pagoData: PagoClienteDto) => {
     const error = await response.json();
     throw new Error(error.message || 'Error al registrar el pago parcial');
   }
+  return await response.json();
+};
+
+export const getLicenciaExpiration = async (): Promise<{ fecha_vencimiento_abono: string, isActivated: boolean }> => {
+  const response = await apiFetch(`${API_URL}/configuracion/licencia`);
+  if (!response.ok) {
+    throw new Error('Error al obtener la configuración de licencia.');
+  }
+  return await response.json();
+};
+
+export const activarLicencia = async (dni: string): Promise<{ message: string; dni: string }> => {
+  const response = await apiFetch(`${API_URL}/auth/activar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dni })
+  });
+
+  if (!response.ok) {
+    // Intenta leer el mensaje específico que enviamos desde NestJS (por ej. DNI_NO_REGISTRADO)
+    const errorData = await response.json().catch(() => null);
+    const apiMessage = errorData?.message || 'Error al intentar activar. Verifique conexión.';
+    throw new Error(apiMessage);
+  }
+  
   return await response.json();
 };

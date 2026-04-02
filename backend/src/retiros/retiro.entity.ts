@@ -4,6 +4,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 // Importamos el enum de turnos que creamos
 
@@ -34,5 +35,11 @@ export class Retiro {
 
   @CreateDateColumn({ name: 'created_at' }) // <-- 'type: datetime' eliminado
   createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+
+  @Column({ type: 'boolean', default: false })
+  sincronizado: boolean;
 }
 

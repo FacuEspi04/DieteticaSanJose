@@ -91,6 +91,9 @@ export class Venta {
   turno: TurnoVenta;
 
 
+  @Column({ type: 'boolean', default: false })
+  sincronizado: boolean;
+
   @CreateDateColumn({ name: 'created_at' }) // <-- CAMBIO: Quitado "type: 'datetime'"
   createdAt: Date;
 

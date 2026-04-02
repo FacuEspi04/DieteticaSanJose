@@ -288,6 +288,7 @@ export class VentasService {
           // ALCANZA para pagar toda esta venta vieja
           venta.monto_pagado = totalVenta;
           venta.estado = VentaEstado.COMPLETADA;
+          venta.sincronizado = false; // Marcar para re-sincronización
           
           // IMPORTANTE: NO tocamos 'formaPago' de la venta vieja.
           
@@ -296,6 +297,7 @@ export class VentasService {
           // NO ALCANZA, pago parcial
           venta.monto_pagado = pagadoPrevio + saldoParaCancelar;
           venta.estado = VentaEstado.PENDIENTE;
+          venta.sincronizado = false; // Marcar para re-sincronización
           saldoParaCancelar = 0;
         }
 
@@ -357,6 +359,7 @@ export class VentasService {
 
     venta.fechaHora = ahora;
     venta.turno = determinarTurno(ahora);
+    venta.sincronizado = false; // Marcar para re-sincronización
 
     this.logger.log(
       `Pago total registrado para Venta #${venta.numeroVenta}.`,
