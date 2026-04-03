@@ -1,7 +1,7 @@
-import { Categoria } from 'src/categorias/categoria.entity';
-import { Marca } from 'src/marcas/marca.entity';
-import { PedidoDetalle } from 'src/pedidos/pedido-detalle.entity';
-import { VentaDetalle } from 'src/ventas/venta-detalle.entity';
+import { Categoria } from '../categorias/categoria.entity';
+import { Marca } from '../marcas/marca.entity';
+import { PedidoDetalle } from '../pedidos/pedido-detalle.entity';
+import { VentaDetalle } from '../ventas/venta-detalle.entity';
 import {
   Column,
   CreateDateColumn,

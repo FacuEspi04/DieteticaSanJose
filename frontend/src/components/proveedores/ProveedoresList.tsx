@@ -144,7 +144,6 @@ const ProveedoresList: React.FC = () => {
             <Table striped bordered hover responsive className="table-header-brand">
               <thead>
                 <tr>
-                  <th>ID</th>
                   <th>Nombre</th>
                   <th>Contacto</th>
                   <th>Teléfono</th>
@@ -156,7 +155,6 @@ const ProveedoresList: React.FC = () => {
                 {proveedores && proveedores.length > 0 ? (
                   proveedores.map((proveedor) => (
                     <tr key={proveedor.id}>
-                      <td>{proveedor.id}</td>
                       <td>{proveedor.nombre}</td>
                       <td>{proveedor.contacto}</td>
                       <td>{proveedor.telefono}</td>
@@ -188,9 +186,9 @@ const ProveedoresList: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="text-center">
+                    <td colSpan={5} className="text-center">
                       {" "}
-                      {/* ColSpan sigue siendo 6 */}
+                      {/* ColSpan actualizado */}
                       No hay proveedores disponibles.
                     </td>
                   </tr>

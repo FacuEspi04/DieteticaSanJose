@@ -6,7 +6,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Venta } from './venta.entity';
-import { Articulo } from 'src/articulos/articulo.entity';
+import { Articulo } from '../articulos/articulo.entity';
 
 
 @Entity({ name: 'venta_detalles' })

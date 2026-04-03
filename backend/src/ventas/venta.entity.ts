@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 
 import { VentaDetalle } from './venta-detalle.entity';
-import { Cliente } from 'src/clientes/cliente.entity';
+import { Cliente } from '../clientes/cliente.entity';
 
 // Enums (los moví aquí para que sean fáciles de exportar)
 export enum FormaPago {
@@ -37,10 +37,10 @@ export class Venta {
   @PrimaryGeneratedColumn() // <-- CAMBIO: Quitado "type: 'bigint'"
   id: number; // Esta es la PK interna
 
-  @Column({ type: 'integer', unique: true }) // <-- CAMBIO: 'bigint' a 'integer'
-  numeroVenta: number; // <-- Lo asignamos por código en el servicio
+  @Column({ type: 'integer', unique: true })
+  numeroVenta: number;
 
-  @Column({ type: 'datetime' }) // <-- 'datetime' está OK en SQLite
+  @Column({ type: 'datetime' })
   fechaHora: Date;
 
   @Column({ name: 'cliente_id', type: 'integer', nullable: true }) // <-- CAMBIO: 'bigint' a 'integer'
@@ -51,7 +51,7 @@ export class Venta {
   cliente: Cliente;
 
   @Column({ type: 'varchar', length: 255 })
-  clienteNombre: string; // Para "Cliente General" o Cta. Cte.
+  clienteNombre: string;
 
   @OneToMany(() => VentaDetalle, (detalle) => detalle.venta, {
     cascade: true, // Guarda/actualiza detalles junto con la venta
@@ -72,9 +72,9 @@ export class Venta {
   monto_pagado: number;
 
   @Column({
-    type: 'varchar', // <-- CORRECTO para SQLite
+    type: 'varchar',
     enum: FormaPago,
-    nullable: true, // <-- Acepta null (para Cta. Cte. y Anuladas)
+    nullable: true,
   })
   formaPago: FormaPago | null;
 

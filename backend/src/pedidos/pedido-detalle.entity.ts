@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Pedido } from './pedido.entity';
-import { Articulo } from 'src/articulos/articulo.entity';
+import { Articulo } from '../articulos/articulo.entity';
 
 
 @Entity({ name: 'pedido_detalles' })

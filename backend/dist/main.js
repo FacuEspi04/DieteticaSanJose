@@ -3660,13 +3660,11 @@ let SyncService = SyncService_1 = class SyncService {
             return;
         this.isSyncing = true;
         try {
-            await this.syncEntity(this.categoriaRepository, 'categorias');
-            await this.syncEntity(this.marcaRepository, 'marcas');
-            await this.syncEntity(this.articuloRepository, 'articulos');
-            await this.syncEntity(this.clienteRepository, 'clientes');
-            await this.syncEntity(this.ventaRepository, 'ventas');
-            await this.syncEntity(this.retiroRepository, 'retiros');
-            let connectedToCloud = false;
+            const estadoLocalPrevio = await this.configuracionService.getValor('comercio_estado');
+            if (estadoLocalPrevio === 'SUSPENDIDO') {
+                this.logger.warn('⛔ Estado local SUSPENDIDO. Abortando sincronización.');
+                return;
+            }
             const supabaseUrl = process.env.SUPABASE_URL;
             const supabaseKey = process.env.SUPABASE_KEY;
             const dniComercio = await this.configuracionService.getValor('dni_comercio');
@@ -3677,37 +3675,48 @@ let SyncService = SyncService_1 = class SyncService {
                         headers: {
                             apikey: supabaseKey,
                             Authorization: `Bearer ${supabaseKey}`,
-                        }
+                        },
                     }));
-                    if (pingResponse.status >= 200 && pingResponse.status < 300 && pingResponse.data && pingResponse.data.length > 0) {
-                        connectedToCloud = true;
+                    if (pingResponse.status >= 200 && pingResponse.status < 300 && pingResponse.data?.length > 0) {
                         const comercio = pingResponse.data[0];
                         if (comercio.estado === 'SUSPENDIDO') {
-                            this.logger.warn('Se detectó suspensión en la nube.');
+                            this.logger.warn('⛔ Licencia SUSPENDIDA detectada. Bloqueando sistema y abortando sincronización.');
                             await this.configuracionService.setValor('comercio_estado', 'SUSPENDIDO');
+                            await this.configuracionService.setValor('ultima_validacion_exitosa', '');
+                            return;
                         }
-                        else {
-                            await this.configuracionService.setValor('comercio_estado', 'ACTIVO');
-                            await this.configuracionService.setValor('ultima_validacion_exitosa', new Date().toISOString());
-                            if (comercio.fecha_vencimiento_abono) {
-                                await this.configuracionService.setValor('fecha_vencimiento_abono', comercio.fecha_vencimiento_abono);
-                            }
+                        await this.configuracionService.setValor('comercio_estado', 'ACTIVO');
+                        await this.configuracionService.setValor('ultima_validacion_exitosa', new Date().toISOString());
+                        if (comercio.fecha_vencimiento_abono) {
+                            await this.configuracionService.setValor('fecha_vencimiento_abono', comercio.fecha_vencimiento_abono);
                         }
                     }
                 }
                 catch (err) {
-                    this.logger.warn(`Error al pingear el servidor para validar licencia.`);
+                    this.logger.warn('Error al pingear Supabase. Verificando estado local...');
+                    const estadoLocal = await this.configuracionService.getValor('comercio_estado');
+                    if (estadoLocal === 'SUSPENDIDO') {
+                        this.logger.warn('⛔ Sin conexión pero estado local es SUSPENDIDO. Abortando.');
+                        return;
+                    }
                 }
             }
+            await this.syncEntity(this.categoriaRepository, 'categorias');
+            await this.syncEntity(this.marcaRepository, 'marcas');
+            await this.syncEntity(this.articuloRepository, 'articulos');
+            await this.syncEntity(this.clienteRepository, 'clientes');
+            await this.syncEntity(this.ventaRepository, 'ventas', 'numero_venta');
+            await this.syncEntity(this.retiroRepository, 'retiros');
         }
         catch (error) {
-            this.logger.warn(`Sincronización pausada: ${error.message}`);
+            const message = error instanceof Error ? error.message : String(error);
+            this.logger.warn(`Sincronización pausada: ${message}`);
         }
         finally {
             this.isSyncing = false;
         }
     }
-    async syncEntity(repository, tableName) {
+    async syncEntity(repository, tableName, onConflictColumn) {
         const hasSyncColumn = repository.metadata.columns.some((column) => column.propertyName === 'sincronizado');
         const pendientes = hasSyncColumn
             ? await repository.find({
@@ -3728,7 +3737,10 @@ let SyncService = SyncService_1 = class SyncService {
         try {
             const payload = pendientes.map((item) => this.toDatabasePayload(item, repository));
             const baseUrl = supabaseUrl.endsWith('/') ? supabaseUrl.slice(0, -1) : supabaseUrl;
-            const response = await (0, rxjs_1.firstValueFrom)(this.httpService.post(`${baseUrl}/rest/v1/${tableName}`, payload, {
+            const onConflictQuery = onConflictColumn
+                ? `?on_conflict=${encodeURIComponent(onConflictColumn)}`
+                : '';
+            const response = await (0, rxjs_1.firstValueFrom)(this.httpService.post(`${baseUrl}/rest/v1/${tableName}${onConflictQuery}`, payload, {
                 headers: {
                     apikey: supabaseKey,
                     Authorization: `Bearer ${supabaseKey}`,
@@ -3762,9 +3774,13 @@ let SyncService = SyncService_1 = class SyncService {
         for (const column of repository.metadata.columns) {
             if (column.propertyName === 'sincronizado')
                 continue;
-            row[column.databaseName] = item[column.propertyName];
+            const snakeCaseKey = this.toSnakeCase(column.propertyName);
+            row[snakeCaseKey] = item[column.propertyName];
         }
         return row;
+    }
+    toSnakeCase(str) {
+        return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
     }
 };
 exports.SyncService = SyncService;

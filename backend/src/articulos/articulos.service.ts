@@ -3,8 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, FindOptionsWhere } from 'typeorm';
 import { CreateArticuloDto } from './dto/create-articulo.dto';
 import { UpdateArticuloDto } from './dto/update-articulo.dto';
-import { Categoria } from 'src/categorias/categoria.entity';
-import { Marca } from 'src/marcas/marca.entity';
+import { Categoria } from '../categorias/categoria.entity';
+import { Marca } from '../marcas/marca.entity';
 import { Articulo } from './articulo.entity';
 
 

@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, FindOptionsWhere, Repository } from 'typeorm';
 import { CreateRetiroDto } from './dto/create-retiro.dto';
 import { Retiro } from './retiro.entity';
-import { determinarTurno } from 'src/common/turnos.util';
+import { determinarTurno } from '../common/turnos.util';
  // Importamos la utilidad
 
 @Injectable()

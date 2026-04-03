@@ -4,7 +4,7 @@ import { PedidosService } from './pedidos.service';
 import { PedidosController } from './pedidos.controller';
 import { Pedido } from './pedido.entity';
 import { PedidoDetalle } from './pedido-detalle.entity';
-import { Articulo } from 'src/articulos/articulo.entity';
+import { Articulo } from '../articulos/articulo.entity';
 
 
 @Module({

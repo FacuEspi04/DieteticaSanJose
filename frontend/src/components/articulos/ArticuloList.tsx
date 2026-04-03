@@ -181,7 +181,6 @@ const ArticuloList: React.FC = () => {
             <Table striped bordered hover responsive className="table-header-brand">
               <thead>
                 <tr>
-                  <th>ID</th>
                   <th>Código de Barras</th>
                   <th>Nombre</th>
                   <th>Marca</th>
@@ -195,7 +194,6 @@ const ArticuloList: React.FC = () => {
                 {articulosFiltrados && articulosFiltrados.length > 0 ? (
                   articulosFiltrados.map((articulo) => (
                     <tr key={articulo.id}>
-                      <td>{articulo.id}</td>
                       <td>
                         <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{articulo.codigo_barras}</code>
                       </td>
@@ -236,7 +234,7 @@ const ArticuloList: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="text-center py-4 text-slate-500">
+                    <td colSpan={7} className="text-center py-4 text-slate-500">
                       {busqueda
                         ? `No se encontraron artículos que coincidan con "${busqueda}"`
                         : 'No hay artículos disponibles. Comienza agregando uno.'}

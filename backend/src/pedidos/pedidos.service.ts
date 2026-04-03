@@ -11,7 +11,7 @@ import {
 
 import { CreatePedidoDto } from './dto/create-pedido.dto';
 import { UpdatePedidoDto } from './dto/update-pedido.dto';
-import { Articulo } from 'src/articulos/articulo.entity';
+import { Articulo } from '../articulos/articulo.entity';
 import { PedidoDetalle } from './pedido-detalle.entity';
 import { Pedido } from './pedido.entity';
 

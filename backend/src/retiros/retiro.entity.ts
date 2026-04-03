@@ -1,4 +1,4 @@
-import { TurnoVenta } from 'src/common/turnos.util';
+import { TurnoVenta } from '../common/turnos.util';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -15,7 +15,7 @@ export class Retiro {
   id: number;
 
   @Column({ type: 'datetime' })
-  fechaHora: Date; // 'datetime' está bien en SQLite
+  fechaHora: Date;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 }) // <-- 'unsigned' eliminado
   monto: number;

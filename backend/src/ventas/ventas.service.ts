@@ -1,8 +1,8 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Articulo } from 'src/articulos/articulo.entity';
-import { Cliente } from 'src/clientes/cliente.entity';
-import { determinarTurno } from 'src/common/turnos.util';
+import { Articulo } from '../articulos/articulo.entity';
+import { Cliente } from '../clientes/cliente.entity';
+import { determinarTurno } from '../common/turnos.util';
 import {
   DataSource,
   Repository,

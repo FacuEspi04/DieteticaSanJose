@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 
 import { PedidoDetalle } from './pedido-detalle.entity';
-import { Proveedor } from 'src/proveedores/proveedores.entity';
+import { Proveedor } from '../proveedores/proveedores.entity';
 
 @Entity({ name: 'pedidos' })
 export class Pedido {
