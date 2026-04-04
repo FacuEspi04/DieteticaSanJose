@@ -179,6 +179,7 @@ export class PedidosService {
       if (updatePedidoDto.items && updatePedidoDto.items.length > 0) {
         await queryRunner.manager.delete(PedidoDetalle, { pedidoId: id });
         
+        const nuevosDetalles: PedidoDetalle[] = [];
         let totalPedido = 0;
         for (const itemDto of updatePedidoDto.items) {
           const articulo = await this.articuloRepository.findOneBy({ id: itemDto.articuloId });
@@ -195,8 +196,10 @@ export class PedidosService {
           detalle.precioUnitario = precioUnitario;
           detalle.subtotal = subtotal;
 
-          await queryRunner.manager.save(detalle);
+          nuevosDetalles.push(detalle);
         }
+        
+        pedido.items = nuevosDetalles;
         pedido.total = totalPedido;
       }
 

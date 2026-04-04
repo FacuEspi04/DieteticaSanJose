@@ -1,16 +1,12 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Package, ClipboardList, ShoppingCart } from "lucide-react";
+
 const Inicio: React.FC = () => {
   const navigate = useNavigate();
 
-  // Ocultar scrollbar en Inicio (no hay contenido que scrollear)
-  // y restaurar al salir para que otras páginas puedan scrollear
   useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "auto";
-    };
+    // Removemos la sobreescritura de body overflow para evitar problemas de scroll en esta vista
   }, []);
 
   const cards = [
@@ -18,7 +14,6 @@ const Inicio: React.FC = () => {
       title: "Artículos",
       desc: "Gestiona tu inventario de productos.",
       icon: <Package size={28} className="text-white" />,
-      bg: "bg-blue-500/10",
       iconBg: "bg-blue-500",
       path: "/articulos",
     },
@@ -26,7 +21,6 @@ const Inicio: React.FC = () => {
       title: "Pedidos",
       desc: "Administra y haz seguimiento de tus pedidos a proveedores.",
       icon: <ClipboardList size={28} className="text-white" />,
-      bg: "bg-emerald-500/10",
       iconBg: "bg-emerald-500",
       path: "/proveedores/pedidos/lista",
     },
@@ -34,14 +28,13 @@ const Inicio: React.FC = () => {
       title: "Ventas",
       desc: "Registra y consulta todas las ventas realizadas.",
       icon: <ShoppingCart size={28} className="text-white" />,
-      bg: "bg-amber-500/10",
       iconBg: "bg-amber-500",
       path: "/ventas",
     },
   ];
 
   return (
-    <div style={{ height: "calc(100vh - 80px)", overflow: "hidden" }} className="d-flex flex-column align-items-center pt-4 px-3">
+    <div className="flex flex-col items-center justify-center animate-fade-in w-full h-full pb-8">
       <div className="flex flex-col items-center mb-4">
         <h2 className="text-2xl font-bold text-slate-900 mb-1">
           Gestor de negocios
@@ -51,7 +44,7 @@ const Inicio: React.FC = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto w-100">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto w-full">
         {cards.map((card) => (
           <div
             key={card.title}

@@ -1,16 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { formatearMoneda } from "../../utils/formatters";
-import {
-  Card,
-  Table,
-  Button,
-  Row,
-  Col,
-  Form,
-  Modal,
-  Alert,
-  Spinner,
-} from "react-bootstrap";
 import { Trash2, FileDown, PlusCircle, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
@@ -23,34 +12,29 @@ import {
   getPedidos,
   deletePedido,
 } from "../../services/apiService";
-
-// Renombrar PedidoGuardado a Pedido para consistencia
-type PedidoGuardado = Pedido;
+import Modal from '../ui/Modal';
+import Spinner from '../ui/Spinner';
+import * as S from '../ui/styles';
 
 const ListaPedidos: React.FC = () => {
   const navigate = useNavigate();
-  const [pedidos, setPedidos] = useState<PedidoGuardado[]>([]);
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
 
-  // Estados de Filtro
   const [proveedorId, setProveedorId] = useState<string>("");
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
 
-  // Estados de UI
-  const [pedidoDetalle, setPedidoDetalle] = useState<PedidoGuardado | null>(null);
+  const [pedidoDetalle, setPedidoDetalle] = useState<Pedido | null>(null);
   const [showDetalle, setShowDetalle] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [pedidoAEliminar, setPedidoAEliminar] = useState<PedidoGuardado | null>(
-    null,
-  );
+  const [pedidoAEliminar, setPedidoAEliminar] = useState<Pedido | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Carga inicial (Proveedores para el filtro)
   useEffect(() => {
     const cargarProveedores = async () => {
       try {
@@ -63,7 +47,6 @@ const ListaPedidos: React.FC = () => {
     cargarProveedores();
   }, []);
 
-  // Cargar pedidos (y re-cargar al cambiar filtros)
   useEffect(() => {
     const cargarPedidos = async () => {
       setIsLoading(true);
@@ -89,8 +72,7 @@ const ListaPedidos: React.FC = () => {
     return () => clearTimeout(timer);
   }, [proveedorId, desde, hasta]);
 
-  // --- Funciones de Eliminación (sin cambios) ---
-  const abrirModalEliminar = (pedido: PedidoGuardado) => {
+  const abrirModalEliminar = (pedido: Pedido) => {
     setPedidoAEliminar(pedido);
     setShowDeleteModal(true);
     setError(null);
@@ -103,7 +85,6 @@ const ListaPedidos: React.FC = () => {
 
   const confirmarEliminacion = async () => {
     if (!pedidoAEliminar) return;
-
     setIsDeleting(true);
     setError(null);
     setExito(null);
@@ -122,9 +103,7 @@ const ListaPedidos: React.FC = () => {
       setIsDeleting(false);
     }
   };
-  // --- Fin Funciones de Eliminación ---
 
-  // --- 2. FUNCIÓN DE IMPRESIÓN REEMPLAZADA POR JSPDF ---
   const addPDFHeader = (doc: jsPDF, title: string, rightText: string) => {
     const margin = 14;
     doc.setFillColor(30, 41, 59);
@@ -143,19 +122,26 @@ const ListaPedidos: React.FC = () => {
     doc.setTextColor(50, 50, 50);
   };
 
-  const imprimirPedido = (pedido: PedidoGuardado) => {
+  // Parsear la fecha como local (no UTC) para evitar el desfase de timezone.
+  // "2026-04-04" sin hora se toma como UTC midnight; agregando T00:00:00 se fuerza a local.
+  const parseFecha = (fechaStr: string) => {
+    if (!fechaStr) return new Date();
+    // Si ya incluye hora (ISO con T), usarlo directo
+    if (fechaStr.includes('T')) return new Date(fechaStr);
+    // Si es solo fecha "YYYY-MM-DD", parsear como local
+    const [y, m, d] = fechaStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  const imprimirPedido = (pedido: Pedido) => {
     const doc = new jsPDF();
     const margin = 14;
-    const fechaFormateada = new Date(pedido.fechaPedido).toLocaleDateString(
-      "es-AR",
-    );
+    const fechaFormateada = parseFecha(pedido.fechaPedido).toLocaleDateString("es-AR");
 
     addPDFHeader(doc, "Pedido a Proveedor", `Fecha: ${fechaFormateada}`);
 
     doc.setFontSize(11);
-    doc.text(`Estado: ${pedido.estado}`, margin, 34);
 
-    // Sección Proveedor
     doc.setFontSize(14);
     doc.text("Proveedor", margin, 46);
     doc.setFontSize(11);
@@ -175,7 +161,6 @@ const ListaPedidos: React.FC = () => {
       doc.text(`Email: ${pedido.proveedor.email}`, margin, startY);
     }
 
-    // Observaciones
     if (pedido.notas) {
       startY += 8;
       doc.setFontSize(12);
@@ -187,339 +172,260 @@ const ListaPedidos: React.FC = () => {
       startY += notes.length * 6;
     }
 
-    // Sección Artículos (Tabla)
     startY += 10;
     doc.setFontSize(14);
     doc.text("Artículos Pedidos", margin, startY);
 
     autoTable(doc, {
       startY: startY + 4,
-      head: [["Artículo", "Cantidad", "P. Unit", "Subtotal"]],
+      head: [["Artículo", "Cantidad"]],
       body: pedido.items.map((i) => {
-        const cantidadTxt = i.articulo.esPesable ? formatearPeso(i.cantidad) : i.cantidad;
-        const precioUnitario = Number(i.precioUnitario);
-        const subtotal = Number(i.subtotal);
+        const cantidadTxt = i.articulo.esPesable ? formatearPeso(i.cantidad) : String(i.cantidad);
         return [
           i.articulo.nombre,
           cantidadTxt,
-          Number.isFinite(precioUnitario) ? formatearMoneda(precioUnitario) : "-",
-          Number.isFinite(subtotal) ? formatearMoneda(subtotal) : "-",
         ];
       }),
       theme: "striped",
-      headStyles: { fillColor: [30, 41, 59] }, // Color principal
-      columnStyles: { 2: { halign: "right" }, 3: { halign: "right" } },
+      headStyles: { fillColor: [30, 41, 59], halign: "center" },
+      columnStyles: { 0: { halign: "center" }, 1: { halign: "center" } },
     });
 
-    // Guardar el archivo
-    doc.save(
-      `pedido_${pedido.proveedor.nombre.replace(/ /g, "_")}_${fechaFormateada}.pdf`,
-    );
+    doc.save(`pedido_${pedido.proveedor.nombre.replace(/ /g, "_")}_${fechaFormateada}.pdf`);
   };
-  // --- FIN DE LA FUNCIÓN MODIFICADA ---
 
   const pedidosFiltrados = pedidos;
 
   return (
     <div>
-      <Card className="mt-4 shadow-sm">
-        <Card.Header className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
-          <h5 className="mb-0">Lista de Pedidos</h5>
-          <div className="d-flex flex-wrap gap-2 botones-header-responsive">
-            <Button
-              variant="outline-secondary"
-              size="sm"
-              onClick={() => navigate("/proveedores")}
-            >
-              <Users size={14} className="me-1" /> Proveedores
-            </Button>
-            <Button
-              variant="success"
-              size="sm"
-              onClick={() => navigate("/proveedores/pedidos/nuevo")}
-            >
-              <PlusCircle size={14} className="me-1" /> Nuevo Pedido
-            </Button>
+      <div className="page-header">
+        <h1 className="page-title">Lista de Pedidos</h1>
+        <div className="flex flex-wrap gap-2">
+          <button className={S.btnOutlineDark} onClick={() => navigate("/proveedores")}><Users size={14} className="mr-1" /> Proveedores</button>
+          <button className={S.btnSuccess} onClick={() => navigate("/proveedores/pedidos/nuevo")}><PlusCircle size={14} className="mr-1" /> Nuevo Pedido</button>
+        </div>
+      </div>
+
+      <div className={S.card}>
+        <div className={S.cardBody}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className={S.label}>Proveedor</label>
+              <select
+                className={S.select}
+                value={proveedorId}
+                onChange={(e) => setProveedorId(e.target.value)}
+              >
+                <option value="">Todos</option>
+                {proveedores.map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={S.label}>Desde (fecha)</label>
+              <input
+                type="date"
+                className={S.input}
+                value={desde}
+                onChange={(e) => setDesde(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={S.label}>Hasta (fecha)</label>
+              <input
+                type="date"
+                className={S.input}
+                value={hasta}
+                onChange={(e) => setHasta(e.target.value)}
+              />
+            </div>
           </div>
-        </Card.Header>
-        <Card.Body>
-          <Row className="mb-3">
-            <Col md={4}>
-              <Form.Group>
-                <Form.Label>Proveedor</Form.Label>
-                <Form.Select
-                  value={proveedorId}
-                  onChange={(e) => setProveedorId(e.target.value)}
-                >
-                  <option value="">Todos</option>
-                  {proveedores.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={4}>
-              <Form.Group>
-                <Form.Label>Desde (fecha)</Form.Label>
-                <Form.Control
-                  type="date"
-                  value={desde}
-                  onChange={(e) => setDesde(e.target.value)}
-                />
-              </Form.Group>
-            </Col>
-            <Col md={4}>
-              <Form.Group>
-                <Form.Label>Hasta (fecha)</Form.Label>
-                <Form.Control
-                  type="date"
-                  value={hasta}
-                  onChange={(e) => setHasta(e.target.value)}
-                />
-              </Form.Group>
-            </Col>
-          </Row>
 
           {error && (
-            <Alert variant="danger" onClose={() => setError(null)} dismissible>
-              {error}
-            </Alert>
+            <div className={S.alertDanger}>
+              <span className="flex-1">{error}</span>
+              <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700 ml-2">✕</button>
+            </div>
           )}
           {exito && (
-            <Alert variant="success" onClose={() => setExito(null)} dismissible>
+            <div className={S.alertSuccess}>
               {exito}
-            </Alert>
+            </div>
           )}
 
           {isLoading ? (
-            <div className="text-center my-5">
-              <Spinner animation="border" variant="success" />
-              <p className="mt-2">Cargando pedidos...</p>
+            <div className="text-center py-10">
+              <Spinner />
+              <p className="mt-2 text-slate-500">Cargando pedidos...</p>
             </div>
           ) : (
-            <Table striped bordered hover responsive className="table-header-brand">
-              <thead>
-                <tr>
-                  <th>Fecha</th>
-                  <th>Proveedor</th>
-                  <th>Ítems</th>
-                  <th>Total</th>
-                  {/* --- 3. COLSPAN ACTUALIZADO (A 5) --- */}
-                  <th colSpan={3}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pedidosFiltrados.length > 0 ? (
-                  pedidosFiltrados.map((pedido) => (
-                    <tr key={pedido.id}>
-                      <td>
-                        {new Date(pedido.fechaPedido).toLocaleDateString(
-                          "es-AR",
-                        )}
-                      </td>
-                      <td>{pedido.proveedor.nombre}</td>
-                      <td>{pedido.items.length}</td>
-                      <td>{formatearMoneda(pedido.total)}</td>
-                      {/* --- 4. CELDAS DE ACCIÓN ACTUALIZADAS CON ÍCONOS --- */}
-                      <td style={{ width: "70px" }}>
-                        <Button
-                          variant="info"
-                          size="sm"
-                          className="w-100"
-                          onClick={() => {
-                            setPedidoDetalle(pedido);
-                            setShowDetalle(true);
-                          }}
-                        >
-                          Ver
-                        </Button>
-                      </td>
-                      {pedido.estado === "Borrador" && (
-                        <td style={{ width: "70px" }}>
-                          <Button
-                            variant="success"
-                            size="sm"
-                            className="w-100"
-                            onClick={() => navigate(`/proveedores/pedidos/editar/${pedido.id}`)}
-                          >
-                            Editar
-                          </Button>
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className={S.table}>
+                <thead className={S.tableHeaderBrand}>
+                  <tr>
+                    <th className={S.th}>Fecha</th>
+                    <th className={S.th}>Proveedor</th>
+                    <th className={S.th}>Ítems</th>
+                    <th className={S.th} align="center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pedidosFiltrados.length > 0 ? (
+                    pedidosFiltrados.map((pedido) => (
+                      <tr key={pedido.id} className={`${S.trStriped} ${S.trHover}`}>
+                        <td className={S.td}>
+                          {parseFecha(pedido.fechaPedido).toLocaleDateString("es-AR")}
                         </td>
-                      )}
-                      <td style={{ width: "70px" }}>
-                        <Button
-                          variant="warning"
-                          size="sm"
-                          className="w-100"
-                          onClick={() => imprimirPedido(pedido)}
-                          title="Descargar PDF"
-                        >
-                          <FileDown size={14} />
-                        </Button>
-                      </td>
-                      <td style={{ width: "70px" }}>
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          className="w-100"
-                          onClick={() => abrirModalEliminar(pedido)}
-                          title="Eliminar pedido"
-                        >
-                          <Trash2 size={14} />
-                        </Button>
+                        <td className={`${S.td} font-medium`}>{pedido.proveedor.nombre}</td>
+                        <td className={S.td}>{pedido.items.length}</td>
+                        <td className={`${S.td} text-center`}>
+                          <div className="flex gap-1.5 justify-center">
+                            <button
+                              className={S.btnInfo}
+                              onClick={() => {
+                                setPedidoDetalle(pedido);
+                                setShowDetalle(true);
+                              }}
+                            >
+                              Ver
+                            </button>
+                            {pedido.estado === "Borrador" && (
+                              <button
+                                className={S.btnSuccess}
+                                onClick={() => navigate(`/proveedores/pedidos/editar/${pedido.id}`)}
+                              >
+                                Editar
+                              </button>
+                            )}
+                            <button
+                              className={S.btnWarning}
+                              onClick={() => imprimirPedido(pedido)}
+                              title="Descargar PDF"
+                            >
+                              <FileDown size={14} />
+                            </button>
+                            <button
+                              className={S.btnOutlineDanger}
+                              onClick={() => abrirModalEliminar(pedido)}
+                              title="Eliminar pedido"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className={`${S.td} text-center py-6 text-slate-500`}>
+                        No hay pedidos registrados en este rango/proveedor.
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    {/* --- 5. COLSPAN ACTUALIZADO A 7 --- */}
-                    <td colSpan={7} className="text-center">
-                      No hay pedidos registrados en este rango/proveedor.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </Table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
 
-          {/* Modal de Detalle */}
-          <Modal show={showDetalle} onHide={() => setShowDetalle(false)} centered>
-            <Modal.Header closeButton>
+          <Modal show={showDetalle} onHide={() => setShowDetalle(false)}>
+            <Modal.Header closeButton onHide={() => setShowDetalle(false)} className="modal-header-brand">
               <Modal.Title>Detalle de Pedido</Modal.Title>
             </Modal.Header>
             <Modal.Body>
               {pedidoDetalle && (
                 <>
-                  <div>
+                  <div className="mb-2">
                     <strong>Fecha:</strong>{" "}
-                    {new Date(pedidoDetalle.fechaPedido).toLocaleDateString(
-                      "es-AR",
-                    )}
+                    {parseFecha(pedidoDetalle.fechaPedido).toLocaleDateString("es-AR")}
                   </div>
-                  <div>
+                  <div className="mb-2">
                     <strong>Proveedor:</strong> {pedidoDetalle.proveedor.nombre}
                   </div>
-                  {pedidoDetalle.proveedor.contacto && (
-                    <div>
-                      <strong>Contacto:</strong>{" "}
-                      {pedidoDetalle.proveedor.contacto}
-                    </div>
-                  )}
-                  {pedidoDetalle.proveedor.telefono && (
-                    <div>
-                      <strong>Tel.:</strong> {pedidoDetalle.proveedor.telefono}
-                    </div>
-                  )}
-                  {pedidoDetalle.proveedor.email && (
-                    <div>
-                      <strong>Email:</strong> {pedidoDetalle.proveedor.email}
-                    </div>
-                  )}
-                  <div className="mt-2">
+                  <div className="mt-4 mb-2">
                     <strong>Artículos:</strong>
-                    <ul>
+                    <ul className="list-disc list-inside mt-1">
                       {pedidoDetalle.items.map((i) => (
                         <li key={i.id}>
-                          {i.articulo.nombre} {i.articulo.esPesable ? "x " : "x"}{i.articulo.esPesable ? formatearPeso(i.cantidad) : i.cantidad}
+                          {i.articulo.nombre} x {i.articulo.esPesable ? formatearPeso(i.cantidad) : i.cantidad}
                         </li>
                       ))}
                     </ul>
                   </div>
                   {pedidoDetalle.notas && (
-                    <div className="mt-2">
-                      <strong>Observaciones:</strong> {pedidoDetalle.notas}
+                    <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                      <strong>Observaciones:</strong> <br/>
+                      {pedidoDetalle.notas}
                     </div>
                   )}
                 </>
               )}
             </Modal.Body>
             <Modal.Footer>
-              <Button variant="secondary" onClick={() => setShowDetalle(false)}>
+              <button className={S.btnSecondary} onClick={() => setShowDetalle(false)}>
                 Cerrar
-              </Button>
-              {/* --- 6. BOTÓN PDF MODAL ACTUALIZADO --- */}
+              </button>
               {pedidoDetalle && (
-                <Button
-                  variant="warning"
+                <button
+                  className={S.btnWarning}
                   onClick={() => imprimirPedido(pedidoDetalle)}
                 >
-                  <FileDown size={14} className="me-1" />
+                  <FileDown size={14} className="mr-1" />
                   Descargar PDF
-                </Button>
+                </button>
               )}
             </Modal.Footer>
           </Modal>
 
-          {/* Modal de Eliminación */}
-          <Modal
-            show={showDeleteModal}
-            onHide={cancelarEliminacion}
-            centered
-          >
-            <Modal.Header
-              closeButton
-              className="modal-header-brand"
-            >
+          <Modal show={showDeleteModal} onHide={cancelarEliminacion}>
+            <Modal.Header closeButton onHide={cancelarEliminacion} className="modal-header-brand">
               <Modal.Title>Confirmar Eliminación</Modal.Title>
             </Modal.Header>
             <Modal.Body>
-              {error && isDeleting && <Alert variant="danger">{error}</Alert>}
+              {error && isDeleting && <div className={S.alertDanger}>{error}</div>}
               {pedidoAEliminar && (
                 <>
                   <p>
-                    ¿Estás seguro de que deseas eliminar permanentemente el
-                    pedido al proveedor{" "}
+                    ¿Estás seguro de que deseas eliminar permanentemente el pedido al proveedor{" "}
                     <strong>{pedidoAEliminar.proveedor.nombre}</strong>?
                   </p>
-                  <div className="alert alert-warning">
-                    <strong>Fecha:</strong>{" "}
-                    {new Date(pedidoAEliminar.fechaPedido).toLocaleDateString(
-                      "es-AR",
-                    )}
-                    <br />
-                    <strong>Total:</strong> $
-                    {formatearMoneda(pedidoAEliminar.total)}
-                    <br />
-                    <strong>Items:</strong> {pedidoAEliminar.items.length}
+                  <div className={S.alertWarning}>
+                    <div>
+                      <strong>Fecha:</strong>{" "}
+                      {parseFecha(pedidoAEliminar.fechaPedido).toLocaleDateString("es-AR")}
+                      <br />
+                      <strong>Items:</strong> {pedidoAEliminar.items.length}
+                    </div>
                   </div>
-                  <p className="text-danger">
-                    <strong>Esta acción no se puede deshacer.</strong>
-                  </p>
+                  <p className="text-red-600 font-bold mb-0">Esta acción no se puede deshacer.</p>
                 </>
               )}
             </Modal.Body>
             <Modal.Footer>
-              <Button
-                variant="secondary"
+              <button
+                className={S.btnSecondary}
                 onClick={cancelarEliminacion}
                 disabled={isDeleting}
               >
                 Cancelar
-              </Button>
-              <Button
-                variant="danger"
+              </button>
+              <button
+                className={S.btnDanger}
                 onClick={confirmarEliminacion}
                 disabled={isDeleting}
               >
                 {isDeleting ? (
                   <>
-                    <Spinner
-                      animation="border"
-                      size="sm"
-                      className="me-2"
-                    />
-                    Eliminando...
+                    <Spinner size="sm" className="mr-2" /> Eliminando...
                   </>
                 ) : (
                   "Eliminar"
                 )}
-              </Button>
+              </button>
             </Modal.Footer>
           </Modal>
-        </Card.Body>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

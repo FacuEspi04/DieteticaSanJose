@@ -1,15 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Card,
-  Form,
-  Button,
-  Alert,
-  Row,
-  Col,
-  InputGroup,
-  Spinner,
-  Modal, 
-} from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle, Barcode, RefreshCw } from 'lucide-react';
 import {
@@ -23,6 +12,9 @@ import {
   type CreateArticuloDto,
 } from '../../services/apiService';
 import { formatearPrecioInput, parsePrecioInput } from '../../utils/formatters';
+import Modal from '../ui/Modal';
+import Spinner from '../ui/Spinner';
+import * as S from '../ui/styles';
 
 interface ArticuloForm {
   nombre: string;
@@ -74,14 +66,13 @@ const AgregarArticulo: React.FC = () => {
           getCategorias(),
           getMarcas(),
         ]);
-        
+
         const categoriasOrdenadas = categoriasData.sort((a, b) => a.nombre.localeCompare(b.nombre));
         const marcasOrdenadas = marcasData.sort((a, b) => a.nombre.localeCompare(b.nombre));
 
         setCategorias(categoriasOrdenadas);
         setMarcas(marcasOrdenadas);
 
-        // Seleccionar "Otros" por defecto si existe
         const marcaOtros = marcasOrdenadas.find(
           (m) => m.nombre.toLowerCase() === 'otros' || m.nombre.toLowerCase() === 'otra'
         );
@@ -95,9 +86,7 @@ const AgregarArticulo: React.FC = () => {
         setError('');
       } catch (err: any) {
         console.error('Error al cargar datos:', err);
-        setError(
-          'No se pudieron cargar las categorías o marcas. Intente más tarde.',
-        );
+        setError('No se pudieron cargar las categorías o marcas. Intente más tarde.');
       } finally {
         setIsLoading(false);
       }
@@ -189,10 +178,8 @@ const AgregarArticulo: React.FC = () => {
       setErrorMarca('El nombre de la marca no puede estar vacío.');
       return;
     }
-
     setIsSubmitting(true);
     setErrorMarca('');
-
     try {
       const nuevaMarca = await createMarca({ nombre: newMarcaName.trim() });
       setMarcas([...marcas, nuevaMarca]);
@@ -212,22 +199,17 @@ const AgregarArticulo: React.FC = () => {
       setErrorCategoria('El nombre de la categoría no puede estar vacío.');
       return;
     }
-
     setIsSubmitting(true);
     setErrorCategoria('');
-
     try {
       const nuevaCategoria = await createCategoria({
         nombre: newCategoriaName.trim(),
       });
-
       setCategorias([...categorias, nuevaCategoria]);
-
       setFormData((prev) => ({
         ...prev,
         categoriaId: String(nuevaCategoria.id),
       }));
-
       setShowCategoriaModal(false);
       setNewCategoriaName('');
     } catch (err: any) {
@@ -263,12 +245,11 @@ const AgregarArticulo: React.FC = () => {
     try {
       await createArticulo(nuevoArticulo);
       setExito(true);
-      
+
       setTimeout(() => {
         setExito(false);
       }, 2000);
 
-      // Limpiar formulario excepto categoría y marca
       setFormData(prev => ({
         ...prev,
         nombre: '',
@@ -291,336 +272,305 @@ const AgregarArticulo: React.FC = () => {
 
   return (
     <div>
-        <Card className="shadow-sm">
-          <Card.Header className="d-flex align-items-center gap-2">
-            <Button
-              variant="link"
-              onClick={handleCancelar}
-              className="p-0 text-slate-600"
-              style={{ textDecoration: 'none' }}
-            >
-              <ArrowLeft size={20} />
-            </Button>
-            <h5 className="mb-0 font-semibold">Agregar Nuevo Artículo</h5>
-          </Card.Header>
-          <Card.Body>
-            {error && (
-              <Alert variant="danger" dismissible onClose={() => setError('')}>
-                {error}
-              </Alert>
-            )}
-            {exito && (
-              <Alert variant="success" className="d-flex align-items-center">
-                <CheckCircle size={20} className="me-2" />
-                ¡Artículo agregado exitosamente! Listo para el siguiente...
-              </Alert>
-            )}
+      <div className={S.card}>
+        <div className={`${S.cardHeader} gap-2`}>
+          <button onClick={handleCancelar} className={S.btnLink}>
+            <ArrowLeft size={20} />
+          </button>
+          <h5 className="text-base font-semibold">Agregar Nuevo Artículo</h5>
+        </div>
+        <div className={S.cardBody}>
+          {error && (
+            <div className={S.alertDanger}>
+              <span className="flex-1">{error}</span>
+              <button onClick={() => setError('')} className="text-red-500 hover:text-red-700 cursor-pointer">✕</button>
+            </div>
+          )}
+          {exito && (
+            <div className={S.alertSuccess}>
+              <CheckCircle size={20} className="shrink-0" />
+              ¡Artículo agregado exitosamente! Listo para el siguiente...
+            </div>
+          )}
 
-            <Form onSubmit={handleSubmit}>
-              <Row>
-                <Col md={8}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>
-                      Nombre del Artículo <span className="text-danger">*</span>
-                    </Form.Label>
-                    <Form.Control
-                      type="text"
-                      name="nombre"
-                      value={formData.nombre}
-                      onChange={handleChange}
-                      placeholder="Ej: Harina Integral 1kg"
-                      required
-                    />
-                  </Form.Group>
-                </Col>
-
-                {/* --- CÓDIGO DE BARRAS AHORA EDITABLE --- */}
-                <Col md={4}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>
-                      Código de Barras <span className="text-danger">*</span>
-                    </Form.Label>
-                    <InputGroup>
-                      <InputGroup.Text>
-                        <Barcode size={16} />
-                      </InputGroup.Text>
-                      <Form.Control
-                        type="text"
-                        name="codigoBarras"
-                        value={formData.codigoBarras}
-                        onChange={handleChange}
-                        // Se quitó readOnly y el estilo gris
-                        placeholder="Escanee o escriba el código"
-                      />
-                      <Button
-                        variant="outline-secondary"
-                        onClick={generarCodigoBarras}
-                        title="Generar nuevo código aleatorio"
-                      >
-                        <RefreshCw size={14} />
-                      </Button>
-                    </InputGroup>
-                    <Form.Text className="text-muted">
-                      Puede ingresarlo manualmente o generar uno aleatorio.
-                    </Form.Text>
-                  </Form.Group>
-                </Col>
-              </Row>
-
-              <Row className="mb-3">
-                <Col md={12}>
-                  <Form.Check
-                    type="switch"
-                    id="esPesable"
-                    name="esPesable"
-                    label="Este artículo se vende por peso (Granel/Kg)"
-                    checked={formData.esPesable}
+          <form onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              {/* Nombre */}
+              <div className="md:col-span-8">
+                <div className={S.formGroup}>
+                  <label className={S.label}>
+                    Nombre del Artículo <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="nombre"
+                    value={formData.nombre}
                     onChange={handleChange}
+                    placeholder="Ej: Harina Integral 1kg"
+                    required
+                    className={S.input}
                   />
-                  {formData.esPesable && (
-                    <Form.Text className="text-muted text-primary mt-1">
-                      El precio base debe ser por 1 Kg. El stock se medirá en Kilos.
-                    </Form.Text>
-                  )}
-                </Col>
-              </Row>
-
-              <Row>
-                <Col md={4}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>
-                      Precio <span className="text-danger">*</span>
-                    </Form.Label>
-                    <InputGroup>
-                      <InputGroup.Text>$</InputGroup.Text>
-                      <Form.Control
-                        type="text"
-                        name="precio"
-                        value={formData.precio}
-                        onChange={handleChange}
-                        placeholder="0,00"
-                        required
-                      />
-                    </InputGroup>
-                  </Form.Group>
-                </Col>
-                <Col md={4}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>
-                      Stock Actual <span className="text-danger">*</span>
-                    </Form.Label>
-                    <Form.Control
-                      type="number"
-                      step={formData.esPesable ? "0.001" : "1"}
-                      name="stock"
-                      value={formData.stock}
-                      onChange={handleChange}
-                      placeholder="0"
-                      min="0"
-                      required
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={4}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>
-                      Stock Mínimo <span className="text-danger">*</span>
-                    </Form.Label>
-                    <Form.Control
-                      type="number"
-                      step={formData.esPesable ? "0.001" : "1"}
-                      name="stockMinimo"
-                      value={formData.stockMinimo}
-                      onChange={handleChange}
-                      placeholder="0"
-                      min="0"
-                      required
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
-              <Row>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>
-                      Categoría <span className="text-danger">*</span>
-                    </Form.Label>
-                    <Form.Select
-                      name="categoriaId"
-                      value={formData.categoriaId}
-                      onChange={handleChange}
-                      required
-                      disabled={isLoading}
-                    >
-                      <option value="">
-                        {isLoading
-                          ? 'Cargando...'
-                          : 'Selecciona una categoría'}
-                      </option>
-                      {categorias.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.nombre}
-                        </option>
-                      ))}
-                      <option
-                        value="NUEVA_CATEGORIA"
-                        style={{ fontStyle: 'italic', color: 'blue' }}
-                      >
-                        -- Agregar Nueva Categoría --
-                      </option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>
-                      Marca <span className="text-danger">*</span>
-                    </Form.Label>
-                    <Form.Select
-                      name="marcaId"
-                      value={formData.marcaId}
-                      onChange={handleChange}
-                      required
-                      disabled={isLoading}
-                    >
-                      <option value="">
-                        {isLoading ? 'Cargando...' : 'Selecciona una marca'}
-                      </option>
-                      {marcas.map((marca) => (
-                        <option key={marca.id} value={marca.id}>
-                          {marca.nombre}
-                        </option>
-                      ))}
-                      <option
-                        value="NUEVA_MARCA"
-                        style={{ fontStyle: 'italic', color: 'blue' }}
-                      >
-                        -- Agregar Nueva Marca --
-                      </option>
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-              </Row>
-
-              <Form.Text className="text-muted d-block mb-3">
-                Los campos marcados con <span className="text-danger">*</span> son
-                obligatorios
-              </Form.Text>
-              <div className="d-flex justify-content-end gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={handleCancelar}
-                  disabled={isSubmitting}
-                >
-                  Cancelar
-                </Button>
-                <Button variant="success" type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Spinner as="span" animation="border" size="sm" />
-                      {' '}Guardando...
-                    </>
-                  ) : (
-                    'Guardar Artículo'
-                  )}
-                </Button>
+                </div>
               </div>
-            </Form>
-          </Card.Body>
-        </Card>
 
-      <Modal
-        show={showMarcaModal}
-        onHide={() => setShowMarcaModal(false)}
-        centered
-      >
-        <Modal.Header closeButton>
+              {/* Código de barras */}
+              <div className="md:col-span-4">
+                <div className={S.formGroup}>
+                  <label className={S.label}>
+                    Código de Barras <span className="text-red-500">*</span>
+                  </label>
+                  <div className={S.inputGroupWrapper}>
+                    <span className={S.inputGroupText}>
+                      <Barcode size={16} />
+                    </span>
+                    <input
+                      type="text"
+                      name="codigoBarras"
+                      value={formData.codigoBarras}
+                      onChange={handleChange}
+                      placeholder="Escanee o escriba el código"
+                      className={`${S.inputGroupInput} rounded-r-none`}
+                    />
+                    <button
+                      type="button"
+                      className={`${S.inputGroupBtn} rounded-r-lg`}
+                      onClick={generarCodigoBarras}
+                      title="Generar nuevo código aleatorio"
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                  </div>
+                  <p className={S.formText}>
+                    Puede ingresarlo manualmente o generar uno aleatorio.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Pesable toggle */}
+            <div className={S.formGroup}>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="esPesable"
+                  checked={formData.esPesable}
+                  onChange={handleChange}
+                  className="w-4 h-4 rounded accent-brand-500"
+                />
+                <span className="text-sm text-slate-700">Este artículo se vende por peso (Granel/Kg)</span>
+              </label>
+              {formData.esPesable && (
+                <p className="text-xs text-blue-600 mt-1">
+                  El precio base debe ser por 1 Kg. El stock se medirá en Kilos.
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Precio */}
+              <div className={S.formGroup}>
+                <label className={S.label}>
+                  Precio <span className="text-red-500">*</span>
+                </label>
+                <div className={S.inputGroupWrapper}>
+                  <span className={S.inputGroupText}>$</span>
+                  <input
+                    type="text"
+                    name="precio"
+                    value={formData.precio}
+                    onChange={handleChange}
+                    placeholder="0,00"
+                    required
+                    className={S.inputGroupInput}
+                  />
+                </div>
+              </div>
+
+              {/* Stock */}
+              <div className={S.formGroup}>
+                <label className={S.label}>
+                  Stock Actual <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step={formData.esPesable ? "0.001" : "1"}
+                  name="stock"
+                  value={formData.stock}
+                  onChange={handleChange}
+                  placeholder="0"
+                  min="0"
+                  required
+                  className={S.input}
+                />
+              </div>
+
+              {/* Stock mínimo */}
+              <div className={S.formGroup}>
+                <label className={S.label}>
+                  Stock Mínimo <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step={formData.esPesable ? "0.001" : "1"}
+                  name="stockMinimo"
+                  value={formData.stockMinimo}
+                  onChange={handleChange}
+                  placeholder="0"
+                  min="0"
+                  required
+                  className={S.input}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Categoría */}
+              <div className={S.formGroup}>
+                <label className={S.label}>
+                  Categoría <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="categoriaId"
+                  value={formData.categoriaId}
+                  onChange={handleChange}
+                  required
+                  disabled={isLoading}
+                  className={S.select}
+                >
+                  <option value="">
+                    {isLoading ? 'Cargando...' : 'Selecciona una categoría'}
+                  </option>
+                  {categorias.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.nombre}
+                    </option>
+                  ))}
+                  <option value="NUEVA_CATEGORIA" style={{ fontStyle: 'italic' }}>
+                    -- Agregar Nueva Categoría --
+                  </option>
+                </select>
+              </div>
+
+              {/* Marca */}
+              <div className={S.formGroup}>
+                <label className={S.label}>
+                  Marca <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="marcaId"
+                  value={formData.marcaId}
+                  onChange={handleChange}
+                  required
+                  disabled={isLoading}
+                  className={S.select}
+                >
+                  <option value="">
+                    {isLoading ? 'Cargando...' : 'Selecciona una marca'}
+                  </option>
+                  {marcas.map((marca) => (
+                    <option key={marca.id} value={marca.id}>
+                      {marca.nombre}
+                    </option>
+                  ))}
+                  <option value="NUEVA_MARCA" style={{ fontStyle: 'italic' }}>
+                    -- Agregar Nueva Marca --
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-500 mb-4">
+              Los campos marcados con <span className="text-red-500">*</span> son obligatorios
+            </p>
+
+            <div className="flex justify-end gap-2">
+              <button type="button" className={S.btnSecondary} onClick={handleCancelar} disabled={isSubmitting}>
+                Cancelar
+              </button>
+              <button type="submit" className={S.btnSuccess} disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Spinner size="sm" className="text-white" />
+                    Guardando...
+                  </>
+                ) : (
+                  'Guardar Artículo'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {/* Modal Marca */}
+      <Modal show={showMarcaModal} onHide={() => setShowMarcaModal(false)}>
+        <Modal.Header closeButton onHide={() => setShowMarcaModal(false)}>
           <Modal.Title>Crear Nueva Marca</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {errorMarca && <Alert variant="danger">{errorMarca}</Alert>}
-          <Form.Group>
-            <Form.Label>Nombre de la nueva marca</Form.Label>
-            <Form.Control
+          {errorMarca && <div className={S.alertDanger}>{errorMarca}</div>}
+          <div>
+            <label className={S.label}>Nombre de la nueva marca</label>
+            <input
               type="text"
               placeholder="Ej: Yin Yang"
               value={newMarcaName}
               onChange={(e) => setNewMarcaName(e.target.value)}
               autoFocus
+              className={S.input}
             />
-          </Form.Group>
+          </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowMarcaModal(false)}
-            disabled={isSubmitting}
-          >
+          <button className={S.btnSecondary} onClick={() => setShowMarcaModal(false)} disabled={isSubmitting}>
             Cancelar
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleCrearMarca}
-            disabled={isSubmitting}
-          >
+          </button>
+          <button className={S.btnPrimary} onClick={handleCrearMarca} disabled={isSubmitting}>
             {isSubmitting ? (
               <>
-                <Spinner as="span" animation="border" size="sm" />
-                {' '}Creando...
+                <Spinner size="sm" className="text-white" />
+                Creando...
               </>
             ) : (
               'Crear y Seleccionar'
             )}
-          </Button>
+          </button>
         </Modal.Footer>
       </Modal>
 
-      <Modal
-        show={showCategoriaModal}
-        onHide={() => setShowCategoriaModal(false)}
-        centered
-      >
-        <Modal.Header closeButton>
+      {/* Modal Categoría */}
+      <Modal show={showCategoriaModal} onHide={() => setShowCategoriaModal(false)}>
+        <Modal.Header closeButton onHide={() => setShowCategoriaModal(false)}>
           <Modal.Title>Crear Nueva Categoría</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {errorCategoria && (
-            <Alert variant="danger">{errorCategoria}</Alert>
-          )}
-          <Form.Group>
-            <Form.Label>Nombre de la nueva categoría</Form.Label>
-            <Form.Control
+          {errorCategoria && <div className={S.alertDanger}>{errorCategoria}</div>}
+          <div>
+            <label className={S.label}>Nombre de la nueva categoría</label>
+            <input
               type="text"
               placeholder="Ej: Galletitas"
               value={newCategoriaName}
               onChange={(e) => setNewCategoriaName(e.target.value)}
               autoFocus
+              className={S.input}
             />
-          </Form.Group>
+          </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowCategoriaModal(false)}
-            disabled={isSubmitting}
-          >
+          <button className={S.btnSecondary} onClick={() => setShowCategoriaModal(false)} disabled={isSubmitting}>
             Cancelar
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleCrearCategoria}
-            disabled={isSubmitting}
-          >
+          </button>
+          <button className={S.btnPrimary} onClick={handleCrearCategoria} disabled={isSubmitting}>
             {isSubmitting ? (
               <>
-                <Spinner as="span" animation="border" size="sm" />
-                {' '}Creando...
+                <Spinner size="sm" className="text-white" />
+                Creando...
               </>
             ) : (
               'Crear y Seleccionar'
             )}
-          </Button>
+          </button>
         </Modal.Footer>
       </Modal>
     </div>

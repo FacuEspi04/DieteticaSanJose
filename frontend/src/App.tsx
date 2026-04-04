@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import 'bootstrap/dist/css/bootstrap.min.css';
+
 import Layout from './components/Layout';
 import { LicenseProvider } from './context/LicenseContext';
 import BloqueoLicenciaModal from './components/common/BloqueoLicenciaModal';
@@ -14,6 +14,7 @@ import AgregarArticulo from './components/articulos/AgregarArticulo';
 import EditarArticulo from './components/articulos/EditarArticulo';
 import ProveedoresList from './components/proveedores/ProveedoresList';
 import AgregarProveedor from './components/proveedores/AgregarProveedor';
+import EditarProveedor from './components/proveedores/EditarProveedor';
 import VentasList from './components/ventas/VentasList';
 import RegistrarVenta from './components/ventas/RegistrarVenta';
 import CuentasCorrientes from './components/ventas/CuentasCorrientes';
@@ -53,6 +54,7 @@ function App() {
           {/* Rutas de proveedores */}
           <Route path="proveedores" element={<ProveedoresList />} />
           <Route path="proveedores/nuevo" element={<AgregarProveedor />} />
+          <Route path="proveedores/editar/:id" element={<EditarProveedor />} />
           <Route path="proveedores/pedidos/lista" element={<ListaPedidos />} />
           <Route path="proveedores/pedidos/nuevo" element={<CrearPedido />} />
     <Route path="proveedores/pedidos/editar/:id" element={<CrearPedido />} />

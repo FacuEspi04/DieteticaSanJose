@@ -1,20 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
-import {
-  Card,
-  Row,
-  Col,
-  Form,
-  Button,
-  Table,
-  Modal,
-  Alert,
-  Spinner,
-  Badge,
-  InputGroup,
-} from "react-bootstrap";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { formatearMoneda, formatearPeso } from "../../utils/formatters";
+import { formatearPeso } from "../../utils/formatters";
 import { 
   FileDown, 
   ClipboardPlus, 
@@ -37,6 +24,9 @@ import {
   type Proveedor,
 } from "../../services/apiService";
 import { useNavigate, useParams } from "react-router-dom";
+import Modal from '../ui/Modal';
+import Spinner from '../ui/Spinner';
+import * as S from '../ui/styles';
 
 interface ItemPedido {
   articulo: Articulo;
@@ -59,17 +49,16 @@ const CrearPedido: React.FC = () => {
   // --- Estados de UI y Filtros ---
   const navigate = useNavigate();
   const { id } = useParams();
-  const [busqueda, setBusqueda] = useState(""); // Para filtrar artículos
+  const [busqueda, setBusqueda] = useState(""); 
   const [showConfirm, setShowConfirm] = useState(false);
   const [exito, setExito] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [pedidoConfirmado, setPedidoConfirmado] = useState<PedidoGuardado | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [, setIsDraftMode] = useState(false);
   const [pedidoId, setPedidoId] = useState<number | null>(null);
 
-  // Carga inicial
   useEffect(() => {
     const cargarDatos = async () => {
       setIsLoading(true);
@@ -116,7 +105,6 @@ const CrearPedido: React.FC = () => {
     cargarDatos();
   }, [id]);
 
-  // --- LÓGICA DE FILTRADO ---
   const articulosFiltrados = useMemo(() => {
     return catalogoArticulos.filter(a => 
       a.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -124,7 +112,6 @@ const CrearPedido: React.FC = () => {
     );
   }, [catalogoArticulos, busqueda]);
 
-  // Separar Stock Crítico vs Normal
   const stockCritico = useMemo(() => {
     return articulosFiltrados.filter(a => a.stock <= a.stock_minimo);
   }, [articulosFiltrados]);
@@ -134,9 +121,6 @@ const CrearPedido: React.FC = () => {
   }, [articulosFiltrados]);
 
 
-  // --- MANEJADORES DEL PEDIDO ---
-
-  // Agregar o Sumar 1 unidad
   const agregarAlPedido = (articulo: Articulo) => {
     setError("");
     const existente = itemsPedido.find((i) => i.articulo.id === articulo.id);
@@ -154,7 +138,6 @@ const CrearPedido: React.FC = () => {
     }
   };
 
-  // Restar 1 unidad
   const restarDelPedido = (articuloId: number) => {
     const existente = itemsPedido.find((i) => i.articulo.id === articuloId);
     if (existente && existente.cantidad > 1) {
@@ -170,7 +153,6 @@ const CrearPedido: React.FC = () => {
     }
   }
 
-  // Cambiar cantidad manualmente (input)
   const cambiarCantidadManual = (articuloId: number, nuevaCantidad: number) => {
       const existente = itemsPedido.find((i) => i.articulo.id === articuloId);
       if (!existente) return;
@@ -185,11 +167,11 @@ const CrearPedido: React.FC = () => {
   const abrirConfirmacion = () => {
     setError("");
     if (!proveedorId) {
-      setError("⚠️ Debes seleccionar un proveedor antes de confirmar.");
+      setError("Debes seleccionar un proveedor antes de confirmar.");
       return;
     }
     if (itemsPedido.length === 0) {
-      setError("⚠️ El pedido está vacío. Agrega artículos desde el listado.");
+      setError("El pedido está vacío. Agrega artículos desde el listado.");
       return;
     }
     setShowConfirm(true);
@@ -220,7 +202,6 @@ const CrearPedido: React.FC = () => {
       setShowConfirm(false);
       setExito("¡Pedido confirmado exitosamente!");
       
-      // Limpiar formulario pero mantener confirmación visible
       setItemsPedido([]);
       setObservaciones("");
       setPedidoId(null);
@@ -305,7 +286,6 @@ const CrearPedido: React.FC = () => {
     doc.setTextColor(50, 50, 50);
   };
 
-  // --- PDF Generator ---
   const imprimirPedido = (pedido: PedidoGuardado) => {
     const doc = new jsPDF();
     const margin = 14;
@@ -330,278 +310,283 @@ const CrearPedido: React.FC = () => {
     startY += 10;
     autoTable(doc, {
       startY: startY + 4,
-      head: [["Artículo", "Cant.", "P. Unit", "Subtotal"]],
+      head: [["Artículo", "Cantidad"]],
       body: pedido.items.map((i) => {
-        const cantidadTxt = i.articulo.esPesable ? formatearPeso(i.cantidad) : i.cantidad;
-        const precioUnitario = Number(i.precioUnitario);
-        const subtotal = Number(i.subtotal);
+        const cantidadTxt = i.articulo.esPesable ? formatearPeso(i.cantidad) : String(i.cantidad);
         return [
           i.articulo.nombre,
           cantidadTxt,
-          Number.isFinite(precioUnitario) ? formatearMoneda(precioUnitario) : "-",
-          Number.isFinite(subtotal) ? formatearMoneda(subtotal) : "-",
         ];
       }),
       theme: "striped",
-      headStyles: { fillColor: [30, 41, 59] },
-      columnStyles: { 2: { halign: "right" }, 3: { halign: "right" } },
+      headStyles: { fillColor: [30, 41, 59], halign: "center" },
+      columnStyles: { 0: { halign: "center" }, 1: { halign: "center" } },
     });
 
     doc.save(`pedido_${pedido.proveedor.nombre}_${fechaFormateada}.pdf`);
   };
 
-
-  // --- RENDER ---
   if (isLoading) {
-      return <div className="text-center my-5"><Spinner animation="border" /> Cargando...</div>;
+      return (
+        <div className="text-center py-10">
+          <Spinner />
+          <p className="mt-2 text-slate-500">Cargando catálogo...</p>
+        </div>
+      );
   }
 
   return (
     <div>
-      {/* Encabezado */}
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <Button
-                      variant="link"
-                      onClick={() => navigate("/proveedores")}
-                      className="p-0 me-2"
-                      style={{ textDecoration: "none" }}
-                    >
-                      <ArrowLeft size={24} />
-                    </Button>
-        <h3 className="mb-0 flex items-center gap-2"><ClipboardPlus size={22}/>Nuevo Pedido</h3>
+      <div className="page-header">
+        <h1 className="page-title flex items-center gap-2"><ClipboardPlus size={26}/> Nuevo Pedido</h1>
+        <button
+          className={S.btnOutlineDark}
+          onClick={() => navigate("/proveedores")}
+        >
+          <ArrowLeft size={16} /> Volver
+        </button>
       </div>
 
-      {error && <Alert variant="danger" dismissible onClose={() => setError("")}>{error}</Alert>}
-      {exito && <Alert variant="success" dismissible onClose={() => setExito("")}>{exito}</Alert>}
+      {error && (
+        <div className={S.alertDanger}>
+          <span className="flex-1">{error}</span>
+          <button onClick={() => setError("")} className="text-red-500 hover:text-red-700 ml-2">✕</button>
+        </div>
+      )}
+      {exito && (
+        <div className={S.alertSuccess}>
+          <span className="flex-1">{exito}</span>
+          <button onClick={() => setExito("")} className="text-emerald-500 hover:text-emerald-700 ml-2">✕</button>
+        </div>
+      )}
 
       {!pedidoConfirmado ? (
-        <Row>
-            {/* COLUMNA IZQUIERDA: Catálogo de Artículos */}
-            <Col md={8}>
-                <Card className="shadow-sm h-100">
-                    <Card.Header className="bg-light">
-                        <InputGroup>
-                            <InputGroup.Text><Search size={16}/></InputGroup.Text>
-                            <Form.Control 
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-2">
+                <div className={S.card}>
+                    <div className={S.cardHeader}>
+                        <div className={`${S.inputGroupWrapper} w-full md:w-2/3 lg:w-1/2`}>
+                            <span className={`${S.inputGroupText} bg-white`}><Search size={16}/></span>
+                            <input 
                                 type="text" 
+                                className={S.inputGroupInput}
                                 placeholder="Buscar artículo por nombre o código..."
                                 value={busqueda}
                                 onChange={(e) => setBusqueda(e.target.value)}
                                 autoFocus
                             />
-                        </InputGroup>
-                    </Card.Header>
-                    <Card.Body style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                        </div>
+                    </div>
+                    <div className={`${S.cardBody} max-h-[70vh] overflow-y-auto`}>
                         
-                        {/* SECCIÓN 1: STOCK CRÍTICO */}
                         {stockCritico.length > 0 && (
-                            <div className="mb-4">
-                                <h6 className="text-danger d-flex align-items-center mb-2">
-                                    <AlertTriangle className="me-2" size={16}/> Artículos con Stock Crítico (Bajo Mínimo)
+                            <div className="mb-6">
+                                <h6 className="text-red-600 font-semibold flex items-center mb-3">
+                                    <AlertTriangle className="mr-2" size={16}/> Artículos con Stock Crítico (Bajo Mínimo)
                                 </h6>
-                                <Table hover size="sm" className="border-danger" bordered>
-                                    <thead className="bg-danger text-white">
-                                        <tr>
-                                            <th>Artículo</th>
-                                            <th className="text-center">Stock Actual</th>
-                                            <th className="text-center">Mínimo</th>
-                                            <th className="text-center">Acción</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {stockCritico.map(art => (
-                                            <tr key={art.id} style={{backgroundColor: '#fff5f5'}}>
-                                                <td className="align-middle fw-bold">{art.nombre}</td>
-                                                <td className="text-center align-middle text-danger fw-bold">{art.stock}</td>
-                                                <td className="text-center align-middle text-muted">{art.stock_minimo}</td>
-                                                <td className="text-center align-middle">
-                                                    <Button 
-                                                        size="sm" 
-                                                        variant="outline-danger" 
-                                                        onClick={() => agregarAlPedido(art)}
-                                                    >
-                                                        <Plus size={14}/> Agregar
-                                                    </Button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </Table>
+                                <div className="overflow-x-auto rounded-lg border border-red-200">
+                                  <table className="w-full text-sm">
+                                      <thead className="bg-red-50 text-red-700">
+                                          <tr>
+                                              <th className={`${S.th} !text-center`}>Artículo</th>
+                                              <th className={`${S.th} !text-center`}>Stock Actual</th>
+                                              <th className={`${S.th} !text-center`}>Stock mínimo</th>
+                                              <th className={`${S.th} !text-center`}>Acción</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody>
+                                          {stockCritico.map(art => (
+                                              <tr key={art.id} className="border-t border-red-100 bg-red-50/30">
+                                                  <td className={`${S.td} font-bold text-slate-800 !text-center align-middle`}>{art.nombre}</td>
+                                                  <td className={`${S.td} !text-center text-red-600 font-bold align-middle`}>{art.stock}</td>
+                                                  <td className={`${S.td} !text-center text-slate-500 align-middle`}>{art.stock_minimo}</td>
+                                                  <td className={`${S.td} !text-center align-middle`}>
+                                                      <div className="flex justify-center">
+                                                          <button 
+                                                              className={S.btnOutlineDanger} 
+                                                              onClick={() => agregarAlPedido(art)}
+                                                          >
+                                                              <Plus size={14}/> Agregar
+                                                          </button>
+                                                      </div>
+                                                  </td>
+                                              </tr>
+                                          ))}
+                                      </tbody>
+                                  </table>
+                                </div>
                             </div>
                         )}
 
-                        {/* SECCIÓN 2: RESTO DEL CATÁLOGO */}
-                        <h6 className="text-muted mb-2">Catálogo General</h6>
-                        <Table hover size="sm">
-                            <thead>
-                                <tr>
-                                    <th>Artículo</th>
-                                    <th className="text-center">Stock</th>
-                                    <th className="text-center">Mínimo</th>
-                                    <th className="text-center">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {stockNormal.map(art => (
-                                    <tr key={art.id}>
-                                        <td className="align-middle">{art.nombre}</td>
-                                        <td className="text-center align-middle">
-                                            <Badge bg="success">{art.stock}</Badge>
-                                        </td>
-                                        <td className="text-center align-middle text-muted">{art.stock_minimo}</td>
-                                        <td className="text-center align-middle">
-                                            <Button 
-                                                size="sm" 
-                                                variant="outline-primary" 
-                                                onClick={() => agregarAlPedido(art)}
-                                            >
-                                                <Plus size={14}/>
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {stockNormal.length === 0 && stockCritico.length === 0 && (
-                                    <tr><td colSpan={3} className="text-center text-muted py-3">No se encontraron artículos.</td></tr>
-                                )}
-                            </tbody>
-                        </Table>
-                    </Card.Body>
-                </Card>
-            </Col>
+                        <h6 className="text-slate-500 font-semibold mb-3">Catálogo General</h6>
+                        <div className="overflow-x-auto rounded-lg border border-slate-200">
+                          <table className={S.table}>
+                              <thead className="bg-slate-50">
+                                  <tr>
+                                      <th className={`${S.th} !text-center`}>Artículo</th>
+                                      <th className={`${S.th} !text-center`}>Stock</th>
+                                      <th className={`${S.th} !text-center`}>Stock mínimo</th>
+                                      <th className={`${S.th} !text-center`}>Acción</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  {stockNormal.map(art => (
+                                      <tr key={art.id} className={`${S.trStriped} ${S.trHover}`}>
+                                          <td className={`${S.td} !text-center align-middle font-bold text-slate-800`}>{art.nombre}</td>
+                                          <td className={`${S.td} !text-center align-middle`}>
+                                              <span className={S.badgeSuccess}>{art.stock}</span>
+                                          </td>
+                                          <td className={`${S.td} !text-center text-slate-500 align-middle`}>{art.stock_minimo}</td>
+                                          <td className={`${S.td} !text-center align-middle`}>
+                                              <div className="flex justify-center">
+                                                  <button 
+                                                      className={S.btnOutlinePrimary} 
+                                                      onClick={() => agregarAlPedido(art)}
+                                                  >
+                                                      <Plus size={14}/>
+                                                  </button>
+                                              </div>
+                                          </td>
+                                      </tr>
+                                  ))}
+                                  {stockNormal.length === 0 && stockCritico.length === 0 && (
+                                      <tr><td colSpan={4} className={`${S.td} text-center text-slate-500 py-4`}>No se encontraron artículos.</td></tr>
+                                  )}
+                              </tbody>
+                          </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-            {/* COLUMNA DERECHA: Resumen del Pedido */}
-            <Col md={4}>
-                <Card className="shadow-sm border-primary h-100">
-                    <Card.Header className="bg-primary text-white">
-                        <h5 className="mb-0">Resumen del Pedido</h5>
-                    </Card.Header>
-                    <Card.Body className="d-flex flex-column">
-                        {/* Selector de Proveedor */}
-                        <Form.Group className="mb-3">
-                            <Form.Label className="fw-bold">Proveedor</Form.Label>
-                            <Form.Select 
+            <div>
+                <div className={`${S.card} h-full flex flex-col`}>
+                    <div className="bg-slate-800 text-white px-5 py-4 rounded-t-xl">
+                        <h5 className="font-semibold m-0">Resumen del Pedido</h5>
+                    </div>
+                    <div className={`${S.cardBody} flex-1 flex flex-col bg-slate-50`}>
+                        <div className={S.formGroup}>
+                            <label className={S.label}>Proveedor</label>
+                            <select 
                                 value={proveedorId} 
                                 onChange={(e) => setProveedorId(e.target.value)}
-                                className={!proveedorId ? "border-danger" : "border-success"}
+                                className={S.select}
                             >
                                 <option value="">-- Seleccionar Proveedor --</option>
                                 {proveedores.map(p => (
                                     <option key={p.id} value={p.id}>{p.nombre}</option>
                                 ))}
-                            </Form.Select>
-                            {!proveedorId && <Form.Text className="text-danger">Seleccione uno para continuar</Form.Text>}
-                        </Form.Group>
+                            </select>
+                            {!proveedorId && <p className="text-xs text-red-500 mt-1">Seleccione uno para continuar</p>}
+                        </div>
 
-                        <Form.Group className="mb-3">
-                            <Form.Label>Observaciones</Form.Label>
-                            <Form.Control 
-                                as="textarea" 
+                        <div className={S.formGroup}>
+                            <label className={S.label}>Observaciones</label>
+                            <textarea 
                                 rows={2}
+                                className={S.input}
                                 placeholder="Ej: Entregar por la mañana..." 
                                 value={observaciones}
                                 onChange={(e) => setObservaciones(e.target.value)}
                             />
-                        </Form.Group>
+                        </div>
 
-                        <hr />
+                        <div className="border-t border-slate-200 my-4"></div>
 
-                        {/* Lista de Items Agregados */}
-                        <div className="flex-grow-1 overflow-auto" style={{maxHeight: '40vh'}}>
+                        <div className="flex-1 overflow-auto max-h-[40vh]">
                             {itemsPedido.length === 0 ? (
-                                <div className="text-center text-muted py-4">
+                                <div className="text-center text-slate-500 py-6 text-sm">
                                     <em>El pedido está vacío.<br/>Seleccione artículos de la izquierda.</em>
                                 </div>
                             ) : (
-                                <Table size="sm" borderless>
+                                <table className="w-full text-sm">
                                     <tbody>
                                         {itemsPedido.map((item, idx) => (
-                                            <tr key={idx} className="border-bottom">
-                                                <td className="align-middle">
-                                                    <small className="fw-bold">{item.articulo.nombre}</small>
+                                            <tr key={idx} className="border-b border-slate-200 last:border-0 hover:bg-slate-100 transition-colors">
+                                                <td className="py-2 px-2 text-center align-middle w-1/3">
+                                                    <span className="font-bold text-slate-800">{item.articulo.nombre}</span>
                                                 </td>
-                                                <td className="align-middle" style={{width: '110px'}}>
-                                                    <InputGroup size="sm">
-                                                        <Button variant="outline-secondary" onClick={() => restarDelPedido(item.articulo.id)}><Minus size={14}/></Button>
-                                                        <Form.Control 
-                                                            className="text-center px-0" 
+                                                <td className="py-2 px-2 align-middle w-1/3">
+                                                    <div className="flex justify-center items-center">
+                                                        <button type="button" className={`${S.btnOutlineSecondary} rounded-r-none px-2 h-[34px] flex items-center justify-center`} onClick={() => restarDelPedido(item.articulo.id)}><Minus size={14}/></button>
+                                                        <input 
+                                                            className="w-16 h-[34px] text-sm font-medium text-slate-800 border-y border-slate-300 bg-white focus:outline-none focus:border-brand-500 text-center px-1 m-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                             type="number"
                                                             step={item.articulo.esPesable ? "0.001" : "1"}
                                                             value={item.cantidad} 
                                                             onChange={(e) => cambiarCantidadManual(item.articulo.id, parseFloat(e.target.value) || 0)}
                                                         />
-                                                        <Button variant="outline-secondary" onClick={() => agregarAlPedido(item.articulo)}><Plus size={14}/></Button>
-                                                    </InputGroup>
+                                                        <button type="button" className={`${S.btnOutlineSecondary} rounded-l-none px-2 h-[34px] flex items-center justify-center`} onClick={() => agregarAlPedido(item.articulo)}><Plus size={14}/></button>
+                                                    </div>
                                                 </td>
-                                                <td className="align-middle text-end">
-                                                    <Button size="sm" variant="link" className="text-danger p-0" onClick={() => eliminarDelPedido(item.articulo.id)}>
-                                                        <Trash2 size={14}/>
-                                                    </Button>
+                                                <td className="py-2 px-2 text-center align-middle w-1/3">
+                                                    <button type="button" className="text-red-500 hover:text-red-700 p-1 inline-flex justify-center items-center" onClick={() => eliminarDelPedido(item.articulo.id)}>
+                                                        <Trash2 size={16}/>
+                                                    </button>
                                                 </td>
                                             </tr>
                                         ))}
                                     </tbody>
-                                </Table>
+                                </table>
                             )}
                         </div>
-                    </Card.Body>
-                    <Card.Footer>
-                        <div className="d-flex justify-content-between align-items-center">
-                            <strong>Total Items: {itemsPedido.length}</strong>
-                            <Button 
-                                variant="success" 
+                    </div>
+                    <div className={S.cardFooter}>
+                        <div className="flex justify-between items-center w-full">
+                            <strong className="text-slate-800">Total Items: {itemsPedido.length}</strong>
+                            <button 
+                                className={S.btnSuccess} 
                                 onClick={abrirConfirmacion}
                                 disabled={itemsPedido.length === 0 || !proveedorId}
                             >
                                 Confirmar Pedido
-                            </Button>
+                            </button>
                         </div>
-                    </Card.Footer>
-                </Card>
-            </Col>
-        </Row>
+                    </div>
+                </div>
+            </div>
+        </div>
       ) : (
-        /* VISTA DE ÉXITO / POST-CONFIRMACIÓN */
-        <Card className="text-center p-5 shadow">
-            <Card.Body>
-                <div className="text-success mb-3">
-                    <ClipboardPlus size={60}/>
+        <div className={S.card}>
+            <div className="p-10 text-center">
+                <div className="text-emerald-500 flex justify-center mb-4">
+                    <ClipboardPlus size={64}/>
                 </div>
-                <h3>¡Pedido Generado Exitosamente!</h3>
-                <p className="text-muted">El pedido ha sido guardado en el sistema.</p>
-                <div className="d-flex justify-content-center gap-3 mt-4">
-                    <Button variant="secondary" onClick={handleNuevoPedido}>
+                <h3 className="text-2xl font-bold text-slate-800 mb-2">¡Pedido Generado Exitosamente!</h3>
+                <p className="text-slate-500 mb-6">El pedido ha sido guardado en el sistema.</p>
+                <div className="flex justify-center gap-3">
+                    <button className={S.btnSecondary} onClick={handleNuevoPedido}>
                         Volver al Inicio
-                    </Button>
-                    <Button variant="primary" onClick={() => pedidoConfirmado && imprimirPedido(pedidoConfirmado)}>
-                        <FileDown className="me-2" size={16}/> Descargar PDF
-                    </Button>
+                    </button>
+                    <button className={S.btnPrimary} onClick={() => pedidoConfirmado && imprimirPedido(pedidoConfirmado)}>
+                        <FileDown className="mr-2" size={16}/> Descargar PDF
+                    </button>
                 </div>
-            </Card.Body>
-        </Card>
+            </div>
+        </div>
       )}
 
-      {/* Modal de confirmación */}
-      <Modal show={showConfirm} onHide={() => setShowConfirm(false)} centered>
-        <Modal.Header closeButton className="bg-success text-white">
+      <Modal show={showConfirm} onHide={() => setShowConfirm(false)}>
+        <Modal.Header closeButton onHide={() => setShowConfirm(false)} className="modal-header-brand">
           <Modal.Title>Confirmar Pedido</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <p>Se generará un pedido para: <strong>{proveedores.find(p => p.id === Number(proveedorId))?.nombre}</strong></p>
           <p>Cantidad de artículos distintos: <strong>{itemsPedido.length}</strong></p>
-          <Alert variant="warning">
-            <small>Verifique que las cantidades sean correctas antes de confirmar.</small>
-          </Alert>
+          <div className={S.alertWarning}>
+            <span className="text-sm">Verifique que las cantidades sean correctas antes de confirmar.</span>
+          </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowConfirm(false)} disabled={isSubmitting}>
+          <button className={S.btnSecondary} onClick={() => setShowConfirm(false)} disabled={isSubmitting}>
             Cancelar
-          </Button>
-          <Button variant="outline-info" onClick={guardarComoBorrador} disabled={isSubmitting}>
-            {isSubmitting ? <Spinner size="sm" animation="border"/> : "Guardar como Borrador"}
-          </Button>
-          <Button variant="success" onClick={confirmarPedido} disabled={isSubmitting}>
-            {isSubmitting ? <><Spinner size="sm" animation="border"/> Guardando...</> : "Confirmar y Guardar"}
-          </Button>
+          </button>
+          <button className={S.btnOutlinePrimary} onClick={guardarComoBorrador} disabled={isSubmitting}>
+            {isSubmitting ? <Spinner size="sm" className="mr-2" /> : "Guardar como Borrador"}
+          </button>
+          <button className={S.btnSuccess} onClick={confirmarPedido} disabled={isSubmitting}>
+            {isSubmitting ? <><Spinner size="sm" className="mr-2"/> Guardando...</> : "Confirmar Pedido"}
+          </button>
         </Modal.Footer>
       </Modal>
     </div>

@@ -1,25 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Card,
-  Form,
-  Button,
-  Alert,
-  Row,
-  Col,
-  InputGroup,
-  Spinner,
-} from 'react-bootstrap';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle } from 'lucide-react';
-// --- MODIFICADO: Importar tipos y funciones de Proveedor ---
-// --- AÑADIDO: 'getProveedorById' ---
 import {
   getProveedorById,
   updateProveedor,
   type UpdateProveedorDto,
 } from '../../services/apiService';
+import * as S from '../ui/styles';
+import Spinner from '../ui/Spinner';
 
-// Interfaz para el estado del formulario
 interface ProveedorForm {
   nombre: string;
   contacto: string;
@@ -44,7 +33,6 @@ const EditarProveedor: React.FC = () => {
     email: '',
   });
 
-  // Cargar datos del proveedor al montar
   useEffect(() => {
     if (!proveedorId) {
       setError('ID de proveedor inválido.');
@@ -55,15 +43,12 @@ const EditarProveedor: React.FC = () => {
     const cargarDatos = async () => {
       setIsLoading(true);
       try {
-        // --- CORREGIDO: Llamar a 'getProveedorById' ---
         const proveedorData = await getProveedorById(proveedorId);
-
-        // Llenamos el formulario con los datos del proveedor
         setFormData({
           nombre: proveedorData.nombre,
-          contacto: proveedorData.contacto || '', // Manejar posibles nulos
-          telefono: proveedorData.telefono || '', // Manejar posibles nulos
-          email: proveedorData.email || '',     // Manejar posibles nulos
+          contacto: proveedorData.contacto || '',
+          telefono: proveedorData.telefono || '',
+          email: proveedorData.email || '',
         });
       } catch (err: any) {
         console.error('Error al cargar datos:', err);
@@ -76,7 +61,6 @@ const EditarProveedor: React.FC = () => {
     cargarDatos();
   }, [proveedorId]);
 
-  // Manejador de cambios simple
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -87,14 +71,11 @@ const EditarProveedor: React.FC = () => {
     });
   };
 
-  // Validación simple
   const validarFormulario = (): boolean => {
     if (!formData.nombre.trim()) {
       setError('El nombre del proveedor es obligatorio');
       return false;
     }
-
-    // Validación simple de email (si se ingresó uno)
     if (
       formData.email.trim() &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)
@@ -102,7 +83,6 @@ const EditarProveedor: React.FC = () => {
       setError('El formato del email no es válido');
       return false;
     }
-
     return true;
   };
 
@@ -117,20 +97,18 @@ const EditarProveedor: React.FC = () => {
 
     setIsSubmitting(true);
 
-    // Preparar DTO de actualización
     const proveedorActualizado: UpdateProveedorDto = {
       nombre: formData.nombre.trim(),
-      contacto: formData.contacto.trim() || null, // Enviar null si está vacío
-      telefono: formData.telefono.trim() || null, // Enviar null si está vacío
-      email: formData.email.trim() || null,     // Enviar null si está vacío
+      contacto: formData.contacto.trim() || null,
+      telefono: formData.telefono.trim() || null,
+      email: formData.email.trim() || null,
     };
 
     try {
       await updateProveedor(proveedorId, proveedorActualizado);
       setExito(true);
-
       setTimeout(() => {
-        navigate('/proveedores'); // Redirigir a la lista de proveedores
+        navigate('/proveedores');
       }, 2000);
     } catch (apiError: any) {
       console.error('Error al actualizar proveedor:', apiError);
@@ -141,148 +119,139 @@ const EditarProveedor: React.FC = () => {
   };
 
   const handleCancelar = () => {
-    navigate('/proveedores'); // Redirigir a la lista de proveedores
+    navigate('/proveedores');
   };
-
-  // --- RENDERIZADO ---
 
   if (isLoading) {
     return (
-      <div className="text-center my-5">
-        <Spinner animation="border" variant="success" />
-        <p className="mt-2">Cargando datos del proveedor...</p>
+      <div className="text-center py-10">
+        <Spinner />
+        <p className="mt-2 text-slate-500">Cargando datos del proveedor...</p>
       </div>
     );
   }
 
   return (
     <div>
+      <div className="page-header">
+        <h1 className="page-title">Editar Proveedor: {formData.nombre}</h1>
+        <button
+          className={S.btnOutlineDark}
+          onClick={handleCancelar}
+          disabled={isSubmitting}
+        >
+          <ArrowLeft size={16} /> Volver
+        </button>
+      </div>
 
-      <div className="mt-4">
-        <Card className="shadow-sm">
-          <Card.Header className="d-flex align-items-center">
-            {/* Botón Volver */}
-            <Button
-              variant="link"
-              onClick={handleCancelar}
-              className="p-0 me-2"
-              style={{ textDecoration: 'none' }}
-            >
-              <ArrowLeft size={24} />
-            </Button>
-            <h5 className="mb-0">Editar Proveedor: {formData.nombre}</h5>
-          </Card.Header>
-          <Card.Body>
-            {/* Alertas */}
+      <div className="max-w-4xl mx-auto mt-6">
+        <div className={S.card}>
+          <div className={S.cardBody}>
             {error && (
-              <Alert variant="danger" dismissible onClose={() => setError('')}>
-                {error}
-              </Alert>
+              <div className={S.alertDanger}>
+                <span className="flex-1">{error}</span>
+                <button onClick={() => setError('')} className="text-red-500 hover:text-red-700 ml-2 cursor-pointer">✕</button>
+              </div>
             )}
             {exito && (
-              <Alert variant="success" className="d-flex align-items-center">
-                <CheckCircle size={24} className="me-2" />
+              <div className={S.alertSuccess}>
+                <CheckCircle size={20} className="shrink-0" />
                 ¡Proveedor actualizado exitosamente! Redirigiendo...
-              </Alert>
+              </div>
             )}
 
-            <Form onSubmit={handleSubmit}>
-              <Row>
-                {/* Nombre */}
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>
-                      Nombre del Proveedor <span className="text-danger">*</span>
-                    </Form.Label>
-                    <Form.Control
-                      type="text"
-                      name="nombre"
-                      value={formData.nombre}
-                      onChange={handleChange}
-                      required
+            <form onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className={S.label}>
+                    Nombre del Proveedor <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="nombre"
+                    value={formData.nombre}
+                    onChange={(e: any) => handleChange(e)}
+                    required
+                    className={S.input}
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <label className={S.label}>Contacto</label>
+                  <input
+                    type="text"
+                    name="contacto"
+                    value={formData.contacto}
+                    onChange={(e: any) => handleChange(e)}
+                    className={S.input}
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className={S.label}>Teléfono</label>
+                  <div className={S.inputGroupWrapper}>
+                    <span className={S.inputGroupText}>📞</span>
+                    <input
+                      type="tel"
+                      name="telefono"
+                      value={formData.telefono}
+                      onChange={(e: any) => handleChange(e)}
+                      className={S.inputGroupInput}
+                      disabled={isSubmitting}
                     />
-                  </Form.Group>
-                </Col>
-
-                {/* Contacto */}
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Contacto</Form.Label>
-                    <Form.Control
-                      type="text"
-                      name="contacto"
-                      value={formData.contacto}
-                      onChange={handleChange}
+                  </div>
+                </div>
+                <div>
+                  <label className={S.label}>Email</label>
+                  <div className={S.inputGroupWrapper}>
+                    <span className={S.inputGroupText}>@</span>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={(e: any) => handleChange(e)}
+                      placeholder="ejemplo@proveedor.com"
+                      className={S.inputGroupInput}
+                      disabled={isSubmitting}
                     />
-                  </Form.Group>
-                </Col>
-              </Row>
+                  </div>
+                </div>
+              </div>
 
-              <Row>
-                {/* Teléfono */}
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Teléfono</Form.Label>
-                    <InputGroup>
-                      <InputGroup.Text>📞</InputGroup.Text>
-                      <Form.Control
-                        type="tel"
-                        name="telefono"
-                        value={formData.telefono}
-                        onChange={handleChange}
-                      />
-                    </InputGroup>
-                  </Form.Group>
-                </Col>
+              <p className={S.formText}>
+                Los campos marcados con <span className="text-red-500">*</span> son obligatorios
+              </p>
 
-                {/* Email */}
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Email</Form.Label>
-                    <InputGroup>
-                      <InputGroup.Text>@</InputGroup.Text>
-                      <Form.Control
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        placeholder="ejemplo@proveedor.com"
-                      />
-                    </InputGroup>
-                  </Form.Group>
-                </Col>
-              </Row>
-
-              <Form.Text className="text-muted d-block mb-3">
-                Los campos marcados con <span className="text-danger">*</span> son
-                obligatorios
-              </Form.Text>
-
-              <div className="d-flex justify-content-end gap-2">
-                <Button
-                  variant="secondary"
+              <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  className={S.btnOutlineSecondary}
                   onClick={handleCancelar}
                   disabled={isSubmitting}
                 >
                   Cancelar
-                </Button>
-                <Button variant="success" type="submit" disabled={isSubmitting}>
+                </button>
+                <button 
+                   type="submit" 
+                   className={S.btnSuccess} 
+                   disabled={isSubmitting}
+                >
                   {isSubmitting ? (
                     <>
-                      <Spinner as="span" animation="border" size="sm" />
-                      {' '}Guardando Cambios...
+                      <Spinner size="sm" className="mr-2" /> Guardando...
                     </>
                   ) : (
                     'Guardar Cambios'
                   )}
-                </Button>
+                </button>
               </div>
-            </Form>
-          </Card.Body>
-        </Card>
+            </form>
+          </div>
+        </div>
       </div>
-
-      {/* Modal de "Nueva Marca" eliminado ya que no aplica */}
     </div>
   );
 };

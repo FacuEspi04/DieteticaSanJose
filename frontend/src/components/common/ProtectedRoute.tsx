@@ -1,16 +1,16 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useLicense } from '../../context/LicenseContext';
-import { Spinner } from 'react-bootstrap';
+import Spinner from '../ui/Spinner';
 
 const ProtectedRoute = () => {
   const { isActivated, isInitializing } = useLicense();
 
   if (isInitializing) {
     return (
-      <div className="d-flex align-items-center justify-content-center vh-100 bg-light">
+      <div className="flex items-center justify-center h-screen bg-slate-50">
          <div className="text-center">
-           <Spinner animation="border" variant="primary" />
-           <p className="mt-3 text-muted">Aguarde un momento...</p>
+           <Spinner />
+           <p className="mt-3 text-slate-500">Aguarde un momento...</p>
          </div>
       </div>
     );

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Card, Button, Form, Spinner } from 'react-bootstrap';
 import { ShieldCheck, ServerCrash } from 'lucide-react';
 import { activarLicencia } from '../services/apiService';
 import { useLicense } from '../context/LicenseContext';
 import { useNavigate } from 'react-router-dom';
+import Spinner from './ui/Spinner';
 
 const LoginScreen = () => {
   const [dni, setDni] = useState('');
@@ -14,7 +14,6 @@ const LoginScreen = () => {
   const navigate = useNavigate();
 
   const handleDniChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // FIltrar automáticamente los puntos y otros caracteres no numéricos
     const rawValue = e.target.value.replace(/\D/g, '');
     setDni(rawValue);
   };
@@ -44,57 +43,52 @@ const LoginScreen = () => {
   };
 
   return (
-    <div className="d-flex align-items-center justify-content-center vh-100 bg-light">
-      <Card className="p-4 shadow-lg border-0" style={{ maxWidth: '400px', width: '100%', borderRadius: '15px' }}>
-        <Card.Body className="text-center">
-          <div className="mb-4">
-            <ShieldCheck size={64} className="text-primary opacity-75" />
+    <div className="flex items-center justify-center h-screen bg-slate-50">
+      <div className="p-6 bg-white shadow-xl border border-slate-200 rounded-2xl w-full max-w-sm">
+        <div className="text-center">
+          <div className="mb-5">
+            <ShieldCheck size={64} className="mx-auto text-blue-500 opacity-75" />
           </div>
-          <h3 className="mb-1 fw-bold text-dark">Activar Sistema</h3>
-          <p className="text-muted small mb-4">Ingrese su DNI registrado para sincronizar la licencia local.</p>
+          <h3 className="mb-1 font-bold text-slate-900 text-xl">Activar Sistema</h3>
+          <p className="text-slate-500 text-sm mb-5">Ingrese su DNI registrado para sincronizar la licencia local.</p>
           
-          <Form onSubmit={handleSubmit}>
-            <Form.Group className="mb-4">
-              <Form.Control
-                size="lg"
+          <form onSubmit={handleSubmit}>
+            <div className="mb-5">
+              <input
                 type="text"
                 placeholder="Nº de DNI..."
                 value={dni}
                 onChange={handleDniChange}
-                className="text-center fw-medium border-2"
-                style={{ letterSpacing: '2px' }}
+                className="w-full text-center font-medium border-2 border-slate-300 rounded-lg px-4 py-3 text-lg tracking-widest focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 disabled:bg-slate-100 disabled:text-slate-400 transition-colors"
                 disabled={loading}
                 autoFocus
               />
-            </Form.Group>
+            </div>
 
             {errorMsg && (
-              <div className="alert alert-danger d-flex align-items-start text-start p-3 small border-0 rounded-3">
-                <ServerCrash className="me-2 flex-shrink-0" size={18} />
+              <div className="flex items-start text-left p-3 mb-4 text-sm bg-red-50 text-red-700 border border-red-200 rounded-lg">
+                <ServerCrash className="mr-2 shrink-0 mt-0.5" size={18} />
                 <span>{errorMsg}</span>
               </div>
             )}
 
-            <Button
-              variant="primary"
+            <button
               type="submit"
-              size="lg"
-              className="w-100 fw-bold d-flex justify-content-center align-items-center gap-2"
               disabled={loading || !dni}
-              style={{ borderRadius: '10px' }}
+              className="w-full font-bold flex justify-center items-center gap-2 bg-blue-600 text-white rounded-lg px-4 py-3 text-base hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               {loading ? (
                 <>
-                  <Spinner animation="border" size="sm" /> 
+                  <Spinner size="sm" className="text-white" />
                   Validando en la nube...
                 </>
               ) : (
                 'Acceder'
               )}
-            </Button>
-          </Form>
-        </Card.Body>
-      </Card>
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 };
